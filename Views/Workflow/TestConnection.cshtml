@@ -1,0 +1,169 @@
+﻿@{
+    ViewData["Title"] = "Test Ollama Connection";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SQL Workflow Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            margin-top: 50px;
+        }
+
+        .status-checking {
+            color: #ffa500;
+        }
+
+        .status-success {
+            color: #4caf50;
+        }
+
+        .status-error {
+            color: #f44336;
+        }
+
+        .instruction-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="test-card">
+                    <h2 class="text-center mb-4">
+                        <i class="fas fa-network-wired me-2"></i>Ollama Connection Test
+                    </h2>
+
+                    <div class="text-center mb-4">
+                        <button class="btn btn-primary btn-lg" onclick="testConnection()">
+                            <i class="fas fa-plug me-2"></i>Test Connection
+                        </button>
+                    </div>
+
+                    <div id="connectionStatus" class="text-center" style="display:none;">
+                        <div class="spinner-border text-primary mb-3" role="status" id="spinner">
+                            <span class="visually-hidden">Testing...</span>
+                        </div>
+                        <h4 id="statusMessage">Testing connection to Ollama...</h4>
+                        <div id="statusDetails" class="mt-3"></div>
+                    </div>
+
+                    <div class="instruction-card">
+                        <h5><i class="fas fa-info-circle me-2"></i>Setup Instructions</h5>
+                        <p>To use this SQL Workflow Generator, you need Ollama running locally:</p>
+
+                        <ol>
+                            <li class="mb-3">
+                                <strong>Install Ollama:</strong>
+                                <div class="code-block mt-2">
+                                    # On macOS<br>
+                                    brew install ollama<br><br>
+                                    # On Linux<br>
+                                    curl -fsSL https://ollama.ai/install.sh | sh<br><br>
+                                    # On Windows<br>
+                                    # Download from https://ollama.ai/download
+                                </div>
+                            </li>
+
+                            <li class="mb-3">
+                                <strong>Start Ollama service:</strong>
+                                <div class="code-block mt-2">
+                                    ollama serve
+                                </div>
+                            </li>
+
+                            <li class="mb-3">
+                                <strong>Pull a model (e.g., Llama 2):</strong>
+                                <div class="code-block mt-2">
+                                    ollama pull llama2
+                                </div>
+                            </li>
+
+                            <li>
+                                <strong>Verify it's running:</strong>
+                                <p class="mb-0">Ollama should be accessible at <code>http://localhost:11434</code></p>
+                            </li>
+                        </ol>
+
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Tip:</strong> For better SQL generation, consider using more capable models like <code>codellama</code> or <code>mistral</code>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function testConnection() {
+            const statusDiv = document.getElementById('connectionStatus');
+            const spinner = document.getElementById('spinner');
+            const statusMessage = document.getElementById('statusMessage');
+            const statusDetails = document.getElementById('statusDetails');
+
+            statusDiv.style.display = 'block';
+            spinner.style.display = 'inline-block';
+            statusMessage.className = 'status-checking';
+            statusMessage.textContent = 'Testing connection to Ollama...';
+            statusDetails.innerHTML = '';
+
+            try {
+                const response = await fetch('/Workflow/TestOllamaConnection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+
+                spinner.style.display = 'none';
+
+                if (result.isConnected) {
+                    statusMessage.className = 'status-success';
+                    statusMessage.innerHTML = '<i class="fas fa-check-circle me-2"></i>Connection Successful!';
+                    statusDetails.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                } else {
+                    statusMessage.className = 'status-error';
+                    statusMessage.innerHTML = '<i class="fas fa-times-circle me-2"></i>Connection Failed';
+                    statusDetails.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+                }
+            } catch (error) {
+                spinner.style.display = 'none';
+                statusMessage.className = 'status-error';
+                statusMessage.innerHTML = '<i class="fas fa-times-circle me-2"></i>Connection Error';
+                statusDetails.innerHTML = `<div class="alert alert-danger">Failed to test connection: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

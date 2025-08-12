@@ -1,0 +1,128 @@
+﻿@model List<WorkflowCreator.Models.WorkflowModel>
+@{
+    ViewData["Title"] = "My Workflows";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SQL Workflow Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .list-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            margin-top: 50px;
+        }
+
+        .workflow-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+            .workflow-item:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }
+
+        .sql-preview {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+
+            .sql-preview::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 30px;
+                background: linear-gradient(transparent, #2d2d2d);
+            }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="list-card">
+                    <h2 class="mb-4">
+                        <i class="fas fa-history me-2"></i>My SQL Workflows
+                    </h2>
+
+                    @if (Model.Any())
+                    {
+                        @foreach (var workflow in Model.OrderByDescending(w => w.CreatedAt))
+                        {
+                            <div class="workflow-item">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h5 class="mb-1">
+                                            <i class="fas fa-project-diagram me-2 text-primary"></i>
+                                            @workflow.Name
+                                        </h5>
+                                        <span class="badge bg-success">
+                                            @(string.IsNullOrEmpty(workflow.GeneratedSql) ? "Processing" : "SQL Generated")
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        @workflow.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                                    </small>
+                                </div>
+
+                                <p class="text-muted mb-2">@workflow.Description</p>
+
+                                @if (!string.IsNullOrEmpty(workflow.GeneratedSql))
+                                {
+                                    <div class="sql-preview">
+                                        @workflow.GeneratedSql.Substring(0, Math.Min(workflow.GeneratedSql.Length, 300))...
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No workflows created yet.</p>
+                            <a href="/Workflow" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>Create Your First Workflow
+                            </a>
+                        </div>
+                    }
+
+                    <div class="text-center mt-4">
+                        <a href="/Workflow" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Create New Workflow
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+﻿@model WorkflowCreator.Models.WorkflowCreateViewModel
+@{
+    ViewData["Title"] = "Create Workflow";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SQL Workflow Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container-main {
+            padding-top: 50px;
+            padding-bottom: 50px;
+        }
+        .workflow-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @@keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .workflow-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .workflow-textarea {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            resize: vertical;
+        }
+        .workflow-textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            outline: none;
+        }
+        .btn-generate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: white;
+        }
+        .btn-generate:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .helper-text {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .navbar-custom {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .example-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .spinner-border {
+            display: none;
+        }
+        .loading .spinner-border {
+            display: inline-block;
+        }
+        .loading .btn-text {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-database me-2"></i>SQL Workflow Generator
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Workflow">Create</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Workflow/List">My Workflows</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Workflow/TestConnection">Test Ollama</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container container-main">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="workflow-card">
+                    <h1 class="workflow-header fw-bold">
+                        <i class="fas fa-magic me-2"></i>Generate SQL Workflow
+                    </h1>
+
+                    <form asp-action="Create" method="post" id="workflowForm">
+                        <div class="mb-4">
+                            <label for="WorkflowDescription" class="form-label fw-semibold">
+                                <i class="fas fa-pencil-alt me-2"></i>Describe your workflow in natural language:
+                            </label>
+                            <textarea asp-for="WorkflowDescription"
+                                      class="form-control workflow-textarea"
+                                      rows="8"
+                                      placeholder="Describe the workflow process you want to implement..."
+                                      required></textarea>
+
+                            <div class="example-box">
+                                <h6 class="fw-bold mb-2">📝 Example Workflow Description:</h6>
+                                <p class="mb-0 small">
+                                    "Create an order approval workflow. First, when a new order is submitted, it should be saved with pending status.
+                                    Then, if the order amount is over $1000, it requires manager approval.
+                                    Next, send email notification to the manager.
+                                    After approval is received, update the order status to approved and record the approval timestamp.
+                                    Finally, trigger the fulfillment process and notify the customer."
+                                </p>
+                            </div>
+
+                            <div class="helper-text">
+                                <p class="mb-2">💡 <strong>Tips for better SQL generation:</strong></p>
+                                <ul class="small">
+                                    <li>Be specific about data entities (orders, customers, approvals, etc.)</li>
+                                    <li>Include business rules and conditions</li>
+                                    <li>Mention required notifications or logging</li>
+                                    <li>Describe the sequence of operations clearly</li>
+                                    <li>Include any status transitions or state changes</li>
+                                </ul>
+                            </div>
+                            <span asp-validation-for="WorkflowDescription" class="text-danger"></span>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-generate" id="generateBtn">
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span class="btn-text">
+                                    <i class="fas fa-cog me-2"></i>Generate SQL Workflow
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('workflowForm').addEventListener('submit', function() {
+            document.getElementById('generateBtn').classList.add('loading');
+            document.getElementById('generateBtn').disabled = true;
+        });
+    </script>
+</body>
+</html>
