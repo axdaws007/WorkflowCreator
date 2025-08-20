@@ -3,48 +3,684 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - WorkflowCreator</title>
-    <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <title>@ViewData["Title"] - AI Workflow Creator</title>
+
+    <!-- Favicon and App Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/WorkflowCreator.styles.css" asp-append-version="true" />
+
+    <!-- Meta Tags for SEO and Social Sharing -->
+    <meta name="description" content="AI-powered workflow creation using Semantic Kernel, OpenAI, and Ollama for intelligent business process automation">
+    <meta name="keywords" content="AI, workflow, automation, semantic kernel, openai, ollama, business process">
+    <meta name="author" content="AI Workflow Creator">
+
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            --warning-gradient: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            --info-gradient: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+            --danger-gradient: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            --dark-gradient: linear-gradient(135deg, #343a40 0%, #495057 100%);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+        }
+
+        /* Enhanced Navbar */
+        .navbar-custom {
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #667eea;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+            .navbar-custom.scrolled {
+                padding: 0.5rem 0;
+                box-shadow: 0 2px 15px rgba(0,0,0,0.15);
+            }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            transition: all 0.3s ease;
+        }
+
+            .navbar-brand:hover {
+                transform: scale(1.05);
+                -webkit-text-fill-color: transparent;
+            }
+
+            .navbar-brand i {
+                background: var(--primary-gradient);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                animation: pulse-brain 2s infinite;
+            }
+
+        @keyframes pulse-brain {
+            0%, 100%
+
+        {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.1);
+        }
+
+        }
+
+        .navbar-nav .nav-link {
+            font-weight: 500;
+            color: #495057 !important;
+            padding: 0.75rem 1rem !important;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            margin: 0 0.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .navbar-nav .nav-link::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: var(--primary-gradient);
+                transition: left 0.3s ease;
+                z-index: -1;
+            }
+
+            .navbar-nav .nav-link:hover {
+                color: white !important;
+                transform: translateY(-2px);
+            }
+
+                .navbar-nav .nav-link:hover::before {
+                    left: 0;
+                }
+
+            .navbar-nav .nav-link.active {
+                background: var(--primary-gradient);
+                color: white !important;
+            }
+
+            .navbar-nav .nav-link i {
+                margin-right: 0.5rem;
+                transition: transform 0.3s ease;
+            }
+
+            .navbar-nav .nav-link:hover i {
+                transform: scale(1.2);
+            }
+
+        /* AI Status Indicator */
+        .ai-status {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+            .ai-status:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse-dot 2s infinite;
+        }
+
+            .status-dot.online {
+                background: #28a745;
+            }
+
+            .status-dot.degraded {
+                background: #ffc107;
+            }
+
+            .status-dot.offline {
+                background: #dc3545;
+            }
+
+        @keyframes pulse-dot {
+            0%, 100%
+
+        {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.6;
+        }
+
+        }
+
+        .ai-status-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        /* Mobile Menu Toggle */
+        .navbar-toggler {
+            border: none;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+            .navbar-toggler:focus {
+                box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+            }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+
+        /* Main Content */
+        main {
+            min-height: calc(100vh - 200px);
+            padding-top: 2rem;
+        }
+
+        /* Enhanced Footer */
+        .footer {
+            background: var(--dark-gradient);
+            color: white;
+            padding: 3rem 0 2rem 0;
+            margin-top: auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .footer::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: var(--primary-gradient);
+            }
+
+        .footer-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .footer-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .footer-description {
+            color: #adb5bd;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h6 {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+            .footer-section ul li {
+                margin-bottom: 0.5rem;
+            }
+
+                .footer-section ul li a {
+                    color: #adb5bd;
+                    text-decoration: none;
+                    transition: color 0.3s ease;
+                    font-size: 0.95rem;
+                }
+
+                    .footer-section ul li a:hover {
+                        color: #667eea;
+                    }
+
+        .footer-tech-stack {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .tech-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .tech-item {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+            .tech-item:hover {
+                background: var(--primary-gradient);
+                transform: translateY(-2px);
+            }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 2rem;
+            text-align: center;
+            color: #adb5bd;
+            font-size: 0.9rem;
+        }
+
+            .footer-bottom a {
+                color: #667eea;
+                text-decoration: none;
+            }
+
+                .footer-bottom a:hover {
+                    text-decoration: underline;
+                }
+
+        /* Loading Indicator */
+        .page-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+            z-index: 9999;
+        }
+
+            .page-loading.show {
+                transform: scaleX(1);
+            }
+
+        /* Responsive Design */
+        @media (max-width: 991.98px) {
+            .navbar-nav
+
+        {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .ai-status {
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .footer-links {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tech-items {
+            gap: 0.5rem;
+        }
+
+        .tech-item {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.8rem;
+        }
+
+        }
+
+        @media (max-width: 576px) {
+            .navbar-brand
+
+        {
+            font-size: 1.25rem;
+        }
+
+        .footer {
+            padding: 2rem 0 1.5rem 0;
+        }
+
+        .footer-tech-stack {
+            padding: 1rem;
+        }
+
+        }
+
+        /* Accessibility Improvements */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after
+
+        {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+
+        }
+
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            .navbar-custom
+
+        {
+            background: #1a1a1a;
+            border-bottom-color: #667eea;
+        }
+
+        .navbar-nav .nav-link {
+            color: #e9ecef !important;
+        }
+
+        .ai-status {
+            background: rgba(26, 26, 26, 0.9);
+        }
+
+        .ai-status-text {
+            color: #e9ecef;
+        }
+
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">WorkflowCreator</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
+    <!-- Page Loading Indicator -->
+    <div class="page-loading" id="pageLoading"></div>
+
+    <!-- Enhanced Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-custom" id="mainNavbar">
+        <div class="container">
+            <!-- Brand -->
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="fas fa-brain me-2"></i>
+                AI Workflow Creator
+            </a>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navigation Menu -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Index" && ViewContext.RouteData.Values["controller"]?.ToString() == "Workflow" ? "active" : "")"
+                           href="/Workflow">
+                            <i class="fas fa-plus"></i>Create Workflow
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "List" ? "active" : "")"
+                           href="/Workflow/List">
+                            <i class="fas fa-list"></i>My Workflows
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "TestConnection" ? "active" : "")"
+                           href="/Workflow/TestConnection">
+                            <i class="fas fa-network-wired"></i>AI Diagnostics
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- AI Status Indicator -->
+                <div class="ai-status" id="aiStatus">
+                    <div class="status-dot online" id="statusDot"></div>
+                    <span class="ai-status-text" id="statusText">AI Services Online</span>
                 </div>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+        </div>
+    </nav>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - WorkflowCreator - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <!-- Main Content -->
+    <main role="main">
+        @RenderBody()
+    </main>
+
+    <!-- Enhanced Footer -->
+    <footer class="footer">
+        <div class="container footer-content">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <div class="footer-brand">
+                        <i class="fas fa-brain me-2"></i>
+                        AI Workflow Creator
+                    </div>
+                    <p class="footer-description">
+                        Intelligent workflow automation powered by advanced AI technologies.
+                        Transform your business processes with hybrid cloud and local AI models.
+                    </p>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="footer-links">
+                        <div class="footer-section">
+                            <h6><i class="fas fa-cogs me-2"></i>Features</h6>
+                            <ul>
+                                <li><a href="/Workflow">AI Workflow Analysis</a></li>
+                                <li><a href="/Workflow">SQL Code Generation</a></li>
+                                <li><a href="/Workflow/TestConnection">Hybrid AI Setup</a></li>
+                                <li><a href="/Workflow/List">Workflow Management</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="footer-section">
+                            <h6><i class="fas fa-question-circle me-2"></i>Support</h6>
+                            <ul>
+                                <li><a href="/Workflow/TestConnection">AI Service Status</a></li>
+                                <li><a href="/Workflow/TestConnection">Connection Testing</a></li>
+                                <li><a href="#" onclick="showHelpModal()">Setup Guide</a></li>
+                                <li><a href="#" onclick="showAboutModal()">About This App</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="footer-section">
+                            <h6><i class="fas fa-code me-2"></i>Technology</h6>
+                            <ul>
+                                <li><a href="https://learn.microsoft.com/en-us/semantic-kernel/" target="_blank">Semantic Kernel</a></li>
+                                <li><a href="https://openai.com/" target="_blank">OpenAI</a></li>
+                                <li><a href="https://ollama.ai/" target="_blank">Ollama</a></li>
+                                <li><a href="https://learn.microsoft.com/aspnet/core" target="_blank">ASP.NET Core</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technology Stack -->
+            <div class="footer-tech-stack">
+                <h6 class="text-center mb-3">
+                    <i class="fas fa-layer-group me-2"></i>Powered By Advanced AI Technologies
+                </h6>
+                <div class="tech-items">
+                    <span class="tech-item">Microsoft Semantic Kernel</span>
+                    <span class="tech-item">OpenAI GPT-4</span>
+                    <span class="tech-item">Ollama Local AI</span>
+                    <span class="tech-item">ASP.NET Core 8</span>
+                    <span class="tech-item">SQL Server</span>
+                    <span class="tech-item">Bootstrap 5</span>
+                    <span class="tech-item">Hybrid Architecture</span>
+                </div>
+            </div>
+
+            <!-- Footer Bottom -->
+            <div class="footer-bottom">
+                <div class="row align-items-center">
+                    <div class="col-md-6 text-center text-md-start">
+                        &copy; @DateTime.Now.Year AI Workflow Creator.
+                        Built with <i class="fas fa-heart text-danger"></i> and AI.
+                    </div>
+                    <div class="col-md-6 text-center text-md-end">
+                        <a href="/Home/Privacy">Privacy Policy</a> |
+                        <a href="#" onclick="showAboutModal()">About</a> |
+                        <span class="text-muted">Version 2.0</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <!-- Enhanced JavaScript -->
+    <script>
+        // Page loading indicator
+        window.addEventListener('beforeunload', function() {
+            document.getElementById('pageLoading').classList.add('show');
+        });
+
+        window.addEventListener('load', function() {
+            document.getElementById('pageLoading').classList.remove('show');
+        });
+
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.getElementById('mainNavbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // AI Status Checker
+        async function checkAIStatus() {
+            try {
+                const response = await fetch('/Workflow/SystemDiagnostics');
+                const data = await response.json();
+
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+
+                if (data.health && data.health.isHealthy) {
+                    statusDot.className = 'status-dot online';
+                    statusText.textContent = 'AI Services Online';
+                } else if (data.health && data.health.warnings && data.health.warnings.length > 0) {
+                    statusDot.className = 'status-dot degraded';
+                    statusText.textContent = 'AI Services Degraded';
+                } else {
+                    statusDot.className = 'status-dot offline';
+                    statusText.textContent = 'AI Services Offline';
+                }
+            } catch (error) {
+                console.log('AI status check failed:', error);
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                statusDot.className = 'status-dot offline';
+                statusText.textContent = 'Status Unknown';
+            }
+        }
+
+        // Check AI status on page load and then every 30 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAIStatus();
+            setInterval(checkAIStatus, 30000);
+        });
+
+        // Helper functions for modals
+        function showHelpModal() {
+            alert('Setup Guide:\n\n1. Configure OpenAI API key in appsettings.json\n2. Install and start Ollama\n3. Download AI models (codellama:7b recommended)\n4. Test connections in AI Diagnostics\n5. Start creating workflows!\n\nFor detailed setup instructions, visit the AI Diagnostics page.');
+        }
+
+        function showAboutModal() {
+            alert('AI Workflow Creator v2.0\n\nA sophisticated workflow automation platform powered by:\n\n• Microsoft Semantic Kernel\n• OpenAI GPT models\n• Ollama local AI\n• Hybrid architecture\n\nThis application demonstrates advanced AI integration for business process automation, combining cloud-based natural language understanding with local code generation capabilities.');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+N or Cmd+N for new workflow
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                window.location.href = '/Workflow';
+            }
+
+            // Ctrl+L or Cmd+L for workflow list
+            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault();
+                window.location.href = '/Workflow/List';
+            }
+
+            // Ctrl+D or Cmd+D for diagnostics
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                e.preventDefault();
+                window.location.href = '/Workflow/TestConnection';
+            }
+        });
+
+        // Analytics and performance monitoring (placeholder)
+        function trackPageView() {
+            // Add your analytics code here
+            console.log('Page view tracked:', window.location.pathname);
+        }
+
+        function trackUserAction(action, details) {
+            // Add your analytics code here
+            console.log('User action tracked:', action, details);
+        }
+
+        // Initialize tracking
+        document.addEventListener('DOMContentLoaded', function() {
+            trackPageView();
+        });
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

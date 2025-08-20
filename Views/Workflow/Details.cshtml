@@ -1,0 +1,785 @@
+﻿@model WorkflowCreator.Models.WorkflowModel
+@{
+    ViewData["Title"] = $"Workflow Details - {Model.Name}";
+    var hasGeneratedSql = !string.IsNullOrEmpty(Model.GeneratedSql);
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - WorkflowCreator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-custom {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #667eea;
+        }
+
+        .details-container {
+            padding-top: 30px;
+            padding-bottom: 50px;
+        }
+
+        .details-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 40px;
+            margin-bottom: 30px;
+            animation: slideUp 0.6s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .details-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        @@keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .workflow-header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .workflow-title {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            font-size: 14px;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-generated {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .status-analyzed {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .status-processing {
+            background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+            color: white;
+        }
+
+        .status-error {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .workflow-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .info-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #667eea;
+        }
+
+        .description-section {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #2196f3;
+        }
+
+        .description-text {
+            line-height: 1.7;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .sql-container {
+            background: #2d2d2d;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            position: relative;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .sql-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .sql-header h4 {
+            color: #f8f8f2;
+            margin: 0;
+        }
+
+        .sql-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .sql-container pre {
+            margin: 0;
+            color: #f8f8f2;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .btn-action {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            margin: 0 5px;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            color: white;
+        }
+
+        .btn-action.success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-action.info {
+            background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+        }
+
+        .btn-action.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+
+        .btn-action.danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .btn-action.secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .action-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            border: 2px solid #667eea;
+        }
+
+        .no-sql-section {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #ffc107;
+            text-align: center;
+        }
+
+        .breadcrumb-section {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .breadcrumb {
+            background: none;
+            margin: 0;
+        }
+
+        .breadcrumb-item + .breadcrumb-item::before {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .breadcrumb-item.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .metrics-section {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #28a745;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .metric-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border-left: 4px solid #28a745;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .copy-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .copy-indicator.show {
+            opacity: 1;
+        }
+
+        .floating-actions {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .btn-floating {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .btn-floating:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+            color: white;
+        }
+
+        .btn-floating.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .btn-floating.success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-floating.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+
+        @@media (max-width: 768px) {
+            .details-card {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sql-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .sql-actions {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .floating-actions {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-brain me-2 text-primary"></i>AI Workflow Creator
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/Workflow"><i class="fas fa-plus me-1"></i>Create</a>
+                <a class="nav-link" href="/Workflow/List"><i class="fas fa-list me-1"></i>Workflows</a>
+                <a class="nav-link" href="/Workflow/TestConnection"><i class="fas fa-network-wired me-1"></i>Diagnostics</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container details-container">
+        <div class="row">
+            <div class="col-12">
+
+                <!-- Breadcrumb -->
+                <div class="breadcrumb-section">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="/Workflow" class="text-decoration-none">
+                                    <i class="fas fa-home me-1"></i>Create
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="/Workflow/List" class="text-decoration-none">
+                                    <i class="fas fa-list me-1"></i>All Workflows
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">
+                                <i class="fas fa-eye me-1"></i>Details
+                            </li>
+                        </ol>
+                    </nav>
+                </div>
+
+                <!-- Workflow Header -->
+                <div class="details-card">
+                    <div class="workflow-header">
+                        <h1 class="workflow-title fw-bold">
+                            <i class="fas fa-project-diagram me-2"></i>@Model.Name
+                        </h1>
+                        <div class="mb-3">
+                            <span class="status-badge status-@(Model.Status?.ToLower() ?? "unknown")">
+                                @Model.Status
+                            </span>
+                            @if (hasGeneratedSql)
+                            {
+                                <span class="status-badge ms-2" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white;">
+                                    <i class="fas fa-database me-1"></i>SQL Ready
+                                </span>
+                            }
+                        </div>
+                        <p class="text-muted fs-6">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Workflow ID: @Model.Id | Created with AI-powered analysis and SQL generation
+                        </p>
+                    </div>
+
+                    <!-- Workflow Information -->
+                    <div class="workflow-info">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-info-circle me-2"></i>Workflow Information
+                        </h5>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-hashtag"></i></div>
+                                <div>
+                                    <strong>Workflow ID:</strong><br>
+                                    <span class="text-muted">@Model.Id</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-tag"></i></div>
+                                <div>
+                                    <strong>Name:</strong><br>
+                                    <span class="text-muted">@Model.Name</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-calendar-plus"></i></div>
+                                <div>
+                                    <strong>Created:</strong><br>
+                                    <span class="text-muted">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss UTC")</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-clock"></i></div>
+                                <div>
+                                    <strong>Age:</strong><br>
+                                    <span class="text-muted">@GetWorkflowAge(Model.CreatedAt)</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-flag"></i></div>
+                                <div>
+                                    <strong>Status:</strong><br>
+                                    <span class="text-muted">@Model.Status</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-icon"><i class="fas fa-brain"></i></div>
+                                <div>
+                                    <strong>AI Technology:</strong><br>
+                                    <span class="text-muted">Semantic Kernel + Hybrid AI</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Description -->
+                <div class="details-card">
+                    <h3><i class="fas fa-file-alt me-2"></i>Original Description</h3>
+                    <div class="description-section">
+                        <div class="description-text">
+                            @Model.Description
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated SQL Section -->
+                @if (hasGeneratedSql)
+                {
+                    <div class="details-card">
+                        <h3><i class="fas fa-database me-2"></i>Generated SQL Code</h3>
+                        <p class="text-muted mb-3">
+                            AI-generated SQL INSERT statements ready for execution in SQL Server Management Studio.
+                            Copy the code below and run it to create your workflow in the PAWS system.
+                        </p>
+
+                        <!-- SQL Metrics -->
+                        <div class="metrics-section">
+                            <h6><i class="fas fa-chart-line me-2"></i>SQL Metrics</h6>
+                            <div class="metrics-grid">
+                                <div class="metric-item">
+                                    <div class="metric-value">@GetSqlLineCount(Model.GeneratedSql)</div>
+                                    <div class="metric-label">Lines of Code</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value">@GetSqlStatementCount(Model.GeneratedSql)</div>
+                                    <div class="metric-label">SQL Statements</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value">@GetSqlSize(Model.GeneratedSql)</div>
+                                    <div class="metric-label">File Size</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value">@GetSqlTableCount(Model.GeneratedSql)</div>
+                                    <div class="metric-label">Tables Used</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sql-container" id="sqlContainer">
+                            <div class="copy-indicator" id="copyIndicator">
+                                <i class="fas fa-check me-1"></i>Copied to Clipboard!
+                            </div>
+                            <div class="sql-header">
+                                <h4><i class="fas fa-code me-2"></i>SQL Server Statements</h4>
+                                <div class="sql-actions">
+                                    <button class="btn-action success" onclick="copySqlToClipboard()">
+                                        <i class="fas fa-copy me-1"></i>Copy SQL
+                                    </button>
+                                    <button class="btn-action info" onclick="downloadSql()">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </button>
+                                    <button class="btn-action secondary" onclick="toggleSqlExpanded()">
+                                        <i class="fas fa-expand me-1"></i>Expand
+                                    </button>
+                                </div>
+                            </div>
+                            <pre><code id="sqlCode" class="language-sql">@Model.GeneratedSql</code></pre>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- No SQL Section -->
+                    <div class="details-card">
+                        <div class="no-sql-section">
+                            <h4><i class="fas fa-exclamation-triangle me-2"></i>No SQL Generated</h4>
+                            <p class="mb-3">
+                                This workflow was analyzed but SQL generation was not completed or failed.
+                                You can try re-analyzing the workflow to generate SQL code.
+                            </p>
+                            <form asp-action="ReAnalyze" asp-route-id="@Model.Id" method="post" style="display: inline;">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn-action warning">
+                                    <i class="fas fa-redo me-2"></i>Re-Analyze with Current AI
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+
+                <!-- Action Buttons -->
+                <div class="details-card">
+                    <div class="action-section">
+                        <h4><i class="fas fa-tools me-2"></i>Workflow Actions</h4>
+                        <p class="text-muted mb-4">Choose an action to perform on this workflow</p>
+
+                        <div class="d-flex flex-wrap justify-content-center gap-3">
+                            <a href="/Workflow/List" class="btn-action secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to List
+                            </a>
+
+                            <form asp-action="ReAnalyze" asp-route-id="@Model.Id" method="post" style="display: inline;">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn-action warning"
+                                        onclick="return confirm('Re-analyze this workflow with current AI models?\n\nThis will regenerate the SQL using the latest AI capabilities.')">
+                                    <i class="fas fa-redo me-2"></i>Re-Analyze
+                                </button>
+                            </form>
+
+                            <a href="/Workflow" class="btn-action" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="fas fa-plus me-2"></i>Create New Workflow
+                            </a>
+
+                            @if (hasGeneratedSql)
+                            {
+                                <button class="btn-action success" onclick="copySqlToClipboard()">
+                                    <i class="fas fa-copy me-2"></i>Copy SQL
+                                </button>
+
+                                <button class="btn-action info" onclick="downloadSql()">
+                                    <i class="fas fa-download me-2"></i>Download SQL
+                                </button>
+                            }
+
+                            <button class="btn-action danger" onclick="deleteWorkflow(@Model.Id, '@Model.Name')">
+                                <i class="fas fa-trash me-2"></i>Delete Workflow
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="floating-actions">
+        @if (hasGeneratedSql)
+        {
+            <button type="button" class="btn-floating success" onclick="copySqlToClipboard()"
+                    data-bs-toggle="tooltip" data-bs-placement="left" title="Copy SQL to clipboard">
+                <i class="fas fa-copy"></i>
+            </button>
+        }
+        <button type="button" class="btn-floating warning" onclick="location.href='/Workflow/ReAnalyze/@Model.Id'"
+                data-bs-toggle="tooltip" data-bs-placement="left" title="Re-analyze workflow">
+            <i class="fas fa-redo"></i>
+        </button>
+        <button type="button" class="btn-floating primary" onclick="location.href='/Workflow'"
+                data-bs-toggle="tooltip" data-bs-placement="left" title="Create new workflow">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- Hidden textarea for copying SQL -->
+    @if (hasGeneratedSql)
+    {
+        <textarea id="hiddenSqlCopy" style="position: absolute; left: -9999px;">@Model.GeneratedSql</textarea>
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script>
+        function copySqlToClipboard() {
+            const sqlText = document.getElementById('sqlCode').innerText;
+            const indicator = document.getElementById('copyIndicator');
+
+            navigator.clipboard.writeText(sqlText).then(function() {
+                // Show success indicator
+                indicator.classList.add('show');
+                
+                setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 2000);
+
+                console.log('SQL copied to clipboard successfully');
+            }).catch(function(err) {
+                console.error('Failed to copy SQL: ', err);
+                
+                // Fallback method
+                const hiddenTextarea = document.getElementById('hiddenSqlCopy');
+                if (hiddenTextarea) {
+                    hiddenTextarea.select();
+                    document.execCommand('copy');
+                    
+                    indicator.classList.add('show');
+                    setTimeout(() => {
+                        indicator.classList.remove('show');
+                    }, 2000);
+                } else {
+                    alert('Failed to copy SQL to clipboard. Please copy manually.');
+                }
+            });
+        }
+
+        function downloadSql() {
+            const sqlCode = document.getElementById('sqlCode').innerText;
+            const workflowName = '@Model.Name'.replace(/[^a-zA-Z0-9]/g, '_');
+            const filename = `${workflowName}_SQL_${new Date().toISOString().split('T')[0]}.sql`;
+
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(sqlCode));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+
+            console.log('SQL downloaded as:', filename);
+        }
+
+        function toggleSqlExpanded() {
+            const container = document.getElementById('sqlContainer');
+            const isExpanded = container.style.maxHeight === 'none';
+
+            if (isExpanded) {
+                container.style.maxHeight = '600px';
+                event.target.innerHTML = '<i class="fas fa-expand me-1"></i>Expand';
+            } else {
+                container.style.maxHeight = 'none';
+                event.target.innerHTML = '<i class="fas fa-compress me-1"></i>Collapse';
+            }
+        }
+
+        function deleteWorkflow(workflowId, workflowName) {
+            if (confirm(`Are you sure you want to delete the workflow "${workflowName}"?\n\nThis action cannot be undone and will remove:\n- The workflow definition\n- Generated SQL code\n- All associated metadata`)) {
+                fetch(`/Workflow/Delete/${workflowId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/Workflow/List';
+                    } else {
+                        alert('Failed to delete workflow: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting workflow: ' + error.message);
+                });
+            }
+        }
+
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize syntax highlighting
+            if (typeof Prism !== 'undefined') {
+                Prism.highlightAll();
+            }
+        });
+
+        // Auto-scroll to SQL section if hash present
+        if (window.location.hash === '#sql') {
+            document.getElementById('sqlContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
+
+@functions {
+    private string GetWorkflowAge(DateTime createdAt)
+    {
+        var age = DateTime.UtcNow - createdAt;
+        if (age.TotalDays >= 1)
+            return $"{(int)age.TotalDays} day{((int)age.TotalDays > 1 ? "s" : "")} ago";
+        if (age.TotalHours >= 1)
+            return $"{(int)age.TotalHours} hour{((int)age.TotalHours > 1 ? "s" : "")} ago";
+        return $"{(int)age.TotalMinutes} minute{((int)age.TotalMinutes > 1 ? "s" : "")} ago";
+    }
+
+    private string GetSqlSize(string? sql)
+    {
+        if (string.IsNullOrEmpty(sql)) return "No SQL";
+
+        var chars = sql.Length;
+        if (chars > 1024)
+            return $"{chars / 1024:F1}KB";
