@@ -2,6 +2,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using WorkflowCreator.Services;
+using WorkflowCreator.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -167,7 +168,8 @@ builder.Services.AddSingleton<IConfigurationValidator, ConfigurationValidator>()
 
 // Validate configuration on startup
 var config = builder.Configuration;
-var configValidator = new ConfigurationValidator(config);
+var tempServiceProvider = builder.Services.BuildServiceProvider();
+var configValidator = tempServiceProvider.GetRequiredService<IConfigurationValidator>();
 var validationResult = configValidator.ValidateConfiguration();
 
 if (!validationResult.IsValid)
@@ -454,155 +456,4 @@ static void ConfigureOllamaAdvanced(IKernelBuilder kernelBuilder, IConfiguration
     kernelBuilder.AddOllamaChatCompletion(
         modelId: model,
         endpoint: new Uri(endpoint));
-}
-
-// ================================================================
-// HELPER CLASSES
-// ================================================================
-
-public class ConfigurationValidator
-{
-    private readonly IConfiguration _configuration;
-
-    public ConfigurationValidator(IConfiguration configuration)
-    {
-        _configuration = configuration;
-    }
-
-    public ValidationResult ValidateConfiguration()
-    {
-        var result = new ValidationResult();
-
-        // Validate cloud AI configuration
-        var cloudProvider = _configuration["AI:Cloud:Provider"];
-        if (!string.IsNullOrEmpty(cloudProvider))
-        {
-            switch (cloudProvider.ToLower())
-            {
-                case "openai":
-                    ValidateOpenAIConfig(result);
-                    break;
-                case "azure":
-                    ValidateAzureConfig(result);
-                    break;
-                default:
-                    result.Warnings.Add($"Unknown cloud provider: {cloudProvider}");
-                    break;
-            }
-        }
-        else
-        {
-            result.Warnings.Add("No cloud AI provider configured - falling back to local only");
-        }
-
-        // Validate local AI configuration
-        ValidateLocalAIConfig(result);
-
-        // Validate schema configuration
-        ValidateSchemaConfig(result);
-
-        return result;
-    }
-
-    private void ValidateOpenAIConfig(ValidationResult result)
-    {
-        var apiKey = _configuration["AI:Cloud:OpenAI:ApiKey"];
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            result.Errors.Add("OpenAI API key not configured");
-        }
-        else if (apiKey == "sk-your-openai-api-key-here")
-        {
-            result.Errors.Add("OpenAI API key is still the placeholder value");
-        }
-
-        var modelId = _configuration["AI:Cloud:OpenAI:ModelId"];
-        if (string.IsNullOrEmpty(modelId))
-        {
-            result.Warnings.Add("OpenAI model ID not specified, using default");
-        }
-    }
-
-    private void ValidateAzureConfig(ValidationResult result)
-    {
-        var endpoint = _configuration["AI:Cloud:Azure:Endpoint"];
-        var apiKey = _configuration["AI:Cloud:Azure:ApiKey"];
-
-        if (string.IsNullOrEmpty(endpoint))
-            result.Errors.Add("Azure OpenAI endpoint not configured");
-
-        if (string.IsNullOrEmpty(apiKey))
-            result.Errors.Add("Azure OpenAI API key not configured");
-    }
-
-    private void ValidateLocalAIConfig(ValidationResult result)
-    {
-        var endpoint = _configuration["AI:Local:Endpoint"] ?? "http://localhost:11434";
-        var modelId = _configuration["AI:Local:ModelId"];
-
-        if (string.IsNullOrEmpty(modelId))
-        {
-            result.Warnings.Add("Local AI model not specified, using default");
-        }
-
-        // Could add endpoint reachability check here
-    }
-
-    private void ValidateSchemaConfig(ValidationResult result)
-    {
-        var useSchemaFile = _configuration.GetValue<bool>("WorkflowSchema:UseSchemaFile", true);
-        if (useSchemaFile)
-        {
-            var schemaFile = _configuration["WorkflowSchema:SchemaFile"] ?? "workflow-schema.sql";
-            if (!File.Exists(schemaFile))
-            {
-                result.Warnings.Add($"Schema file not found: {schemaFile}");
-            }
-        }
-    }
-}
-
-public class ValidationResult
-{
-    public List<string> Warnings { get; set; } = new();
-    public List<string> Errors { get; set; } = new();
-    public bool IsValid => !Errors.Any();
-}
-
-public class AIServicesHealthCheck : IHealthCheck
-{
-    private readonly IConnectionTestService _connectionTestService;
-    private readonly ILogger<AIServicesHealthCheck> _logger;
-
-    public AIServicesHealthCheck(IConnectionTestService connectionTestService, ILogger<AIServicesHealthCheck> logger)
-    {
-        _connectionTestService = connectionTestService;
-        _logger = logger;
-    }
-
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var health = await _connectionTestService.TestAllConnectionsAsync();
-
-            if (health.IsHealthy)
-            {
-                return HealthCheckResult.Healthy("All AI services are operational");
-            }
-            else if (health.CloudService.IsConnected || health.LocalService.IsConnected)
-            {
-                return HealthCheckResult.Degraded("Some AI services are operational");
-            }
-            else
-            {
-                return HealthCheckResult.Unhealthy("No AI services are operational");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Health check failed");
-            return HealthCheckResult.Unhealthy("Health check failed", ex);
-        }
-    }
 }

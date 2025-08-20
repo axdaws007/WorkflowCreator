@@ -783,3 +783,44 @@
         var chars = sql.Length;
         if (chars > 1024)
             return $"{chars / 1024:F1}KB";
+        return $"{chars} chars";
+    }
+
+    private int GetSqlLineCount(string? sql)
+    {
+        if (string.IsNullOrEmpty(sql)) return 0;
+        return sql.Split('\n').Length;
+    }
+
+    private int GetSqlStatementCount(string? sql)
+    {
+        if (string.IsNullOrEmpty(sql)) return 0;
+        return sql.Split(new[] { "INSERT INTO" }, StringSplitOptions.RemoveEmptyEntries).Length - 1;
+    }
+
+    private int GetSqlTableCount(string? sql)
+    {
+        if (string.IsNullOrEmpty(sql)) return 0;
+        
+        var tables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = sql.Split('\n');
+        
+        foreach (var line in lines)
+        {
+            if (line.TrimStart().StartsWith("INSERT INTO", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = line.Split(new[] { "INSERT INTO", "[", "]", "(" }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 1)
+                {
+                    var tableName = parts[1].Trim().Split('.').LastOrDefault()?.Trim();
+                    if (!string.IsNullOrEmpty(tableName))
+                    {
+                        tables.Add(tableName);
+                    }
+                }
+            }
+        }
+        
+        return tables.Count;
+    }
+}
