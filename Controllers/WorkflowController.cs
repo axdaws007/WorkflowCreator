@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// Controllers/WorkflowController.cs
+using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using System.Text;
 using WorkflowCreator.Models;
 using WorkflowCreator.Services;
 
@@ -7,26 +9,65 @@ namespace WorkflowCreator.Controllers
 {
     public class WorkflowController : Controller
     {
+        private readonly IWorkflowAnalysisService _analysisService;
+        private readonly ISqlGenerationService _sqlService;
+        private readonly IConnectionTestService _connectionTestService;
         private readonly IWorkflowService _workflowService;
-        private readonly IOllamaService _ollamaService;
         private readonly ILogger<WorkflowController> _logger;
         private readonly IConfiguration _configuration;
 
-        public WorkflowController(IWorkflowService workflowService, IOllamaService ollamaService,
-            ILogger<WorkflowController> logger, IConfiguration configuration)
+        public WorkflowController(
+            IWorkflowAnalysisService analysisService,
+            ISqlGenerationService sqlService,
+            IConnectionTestService connectionTestService,
+            IWorkflowService workflowService,
+            ILogger<WorkflowController> logger,
+            IConfiguration configuration)
         {
+            _analysisService = analysisService;
+            _sqlService = sqlService;
+            _connectionTestService = connectionTestService;
             _workflowService = workflowService;
-            _ollamaService = ollamaService;
             _logger = logger;
             _configuration = configuration;
         }
 
+        /// <summary>
+        /// GET: /Workflow
+        /// Displays the workflow creation form
+        /// </summary>
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            return View(new WorkflowCreateViewModel());
+            var viewModel = new WorkflowCreateViewModel();
+
+            // Add configuration info for the UI
+            ViewBag.CloudProvider = _configuration["AI:Cloud:Provider"] ?? "Not configured";
+            ViewBag.LocalProvider = _configuration["AI:Local:Provider"] ?? "Ollama";
+            ViewBag.IsHybridSetup = !string.IsNullOrEmpty(_configuration["AI:Cloud:Provider"]) &&
+                                   !string.IsNullOrEmpty(_configuration["AI:Local:ModelId"]);
+
+            // Quick health check for status indicators
+            try
+            {
+                var healthCheck = await _connectionTestService.TestAllConnectionsAsync();
+                ViewBag.SystemHealth = healthCheck.IsHealthy;
+                ViewBag.HealthWarnings = healthCheck.Warnings;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to perform health check on Index page");
+                ViewBag.SystemHealth = false;
+                ViewBag.HealthWarnings = new List<string> { "Unable to check AI service status" };
+            }
+
+            return View(viewModel);
         }
 
+        /// <summary>
+        /// POST: /Workflow/Create
+        /// Processes workflow description using AI services and generates SQL
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(WorkflowCreateViewModel model)
@@ -37,168 +78,558 @@ namespace WorkflowCreator.Controllers
                 return View("Index", model);
             }
 
-            var stopwatch = Stopwatch.StartNew();
+            var overallStopwatch = Stopwatch.StartNew();
+            var processingSteps = new List<string>();
 
             try
             {
-                // Process the workflow description
-                var result = _workflowService.ProcessWorkflowDescription(model.WorkflowDescription);
+                _logger.LogInformation("Starting AI-powered workflow creation for description: {description}",
+                    model.WorkflowDescription.Substring(0, Math.Min(100, model.WorkflowDescription.Length)) + "...");
 
-                // Build prompts for Ollama
-                var systemPrompt = BuildSystemPrompt();
-                var userPrompt = BuildUserPrompt(model.WorkflowDescription, result.Steps);
+                // PHASE 1: AI-Powered Workflow Analysis (Cloud AI)
+                processingSteps.Add("Starting AI analysis of workflow description");
+                _logger.LogInformation("Phase 1: Analyzing workflow with cloud AI");
 
-                result.SystemPrompt = systemPrompt;
-                result.UserPrompt = userPrompt;
+                var analysisStopwatch = Stopwatch.StartNew();
+                var analysisResult = await _analysisService.AnalyzeWorkflowAsync(model.WorkflowDescription);
+                analysisStopwatch.Stop();
 
-                // Call Ollama to generate SQL
-                var sqlResult = await _ollamaService.GenerateSqlAsync(systemPrompt, userPrompt);
+                if (!analysisResult.Success)
+                {
+                    _logger.LogError("Workflow analysis failed: {error}", analysisResult.ErrorMessage);
 
-                if (sqlResult.Success && result.Workflow != null)
+                    var errorResult = new WorkflowResultViewModel
+                    {
+                        Success = false,
+                        Message = $"AI workflow analysis failed: {analysisResult.ErrorMessage}",
+                        ResponseTimeMs = overallStopwatch.ElapsedMilliseconds,
+                        ProcessingSteps = processingSteps,
+                        AnalysisMetadata = new Dictionary<string, object>
+                        {
+                            ["AnalysisTimeMs"] = analysisStopwatch.ElapsedMilliseconds,
+                            ["FailurePhase"] = "Analysis",
+                            ["CloudProvider"] = _configuration["AI:Cloud:Provider"] ?? "Unknown"
+                        }
+                    };
+                    return View("Result", errorResult);
+                }
+
+                processingSteps.Add($"✓ Analysis completed: '{analysisResult.WorkflowName}' with {analysisResult.StepCount} steps");
+
+                // Validate analysis result
+                var validationIssues = analysisResult.Validate();
+                if (validationIssues.Any())
+                {
+                    _logger.LogWarning("Analysis validation issues: {issues}", string.Join(", ", validationIssues));
+                    processingSteps.Add($"⚠ Analysis warnings: {validationIssues.Count} issues found");
+                }
+
+                _logger.LogInformation("Analysis completed: Name='{name}', Steps={stepCount}, Statuses={statusCount}, Time={timeMs}ms",
+                    analysisResult.WorkflowName,
+                    analysisResult.StepCount,
+                    analysisResult.AllStatuses.Count,
+                    analysisStopwatch.ElapsedMilliseconds);
+
+                // Create workflow model with analyzed data
+                var workflow = new WorkflowModel
+                {
+                    Id = await GetNextWorkflowIdAsync(),
+                    Name = analysisResult.WorkflowName ?? "Unnamed Workflow",
+                    Description = model.WorkflowDescription,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Analyzed"
+                };
+
+                // PHASE 2: SQL Generation (Local AI)
+                processingSteps.Add("Generating SQL statements with specialized AI model");
+                _logger.LogInformation("Phase 2: Generating SQL with local AI");
+
+                var sqlStopwatch = Stopwatch.StartNew();
+                var systemPrompt = BuildEnhancedSystemPrompt();
+                var userPrompt = BuildEnhancedUserPrompt(analysisResult);
+
+                var sqlResult = await _sqlService.GenerateEnhancedSqlAsync(analysisResult, systemPrompt);
+                sqlStopwatch.Stop();
+
+                processingSteps.Add(sqlResult.Success
+                    ? $"✓ SQL generated successfully ({sqlResult.TokensUsed} tokens, {sqlResult.GenerationTimeMs}ms)"
+                    : $"✗ SQL generation failed: {sqlResult.ErrorMessage}");
+
+                // Build comprehensive result
+                var result = new WorkflowResultViewModel
+                {
+                    Success = sqlResult.Success,
+                    Workflow = workflow,
+                    Steps = analysisResult.Steps?.Select(s => $"{s.Title}: {s.Description}").ToList(),
+                    SystemPrompt = systemPrompt,
+                    UserPrompt = userPrompt,
+                    ProcessingSteps = processingSteps,
+                    RequiredStatuses = analysisResult.RequiredStatuses,
+                    ExistingStatuses = analysisResult.ExistingStatuses,
+                    ValidationIssues = validationIssues
+                };
+
+                // Add detailed metadata
+                result.AnalysisMetadata = new Dictionary<string, object>
+                {
+                    ["TotalTimeMs"] = overallStopwatch.ElapsedMilliseconds,
+                    ["AnalysisTimeMs"] = analysisStopwatch.ElapsedMilliseconds,
+                    ["SqlGenerationTimeMs"] = sqlStopwatch.ElapsedMilliseconds,
+                    ["CloudProvider"] = analysisResult.AIProvider,
+                    ["LocalProvider"] = _configuration["AI:Local:Provider"] ?? "Unknown",
+                    ["LocalModel"] = sqlResult.ModelUsed,
+                    ["WorkflowName"] = analysisResult.WorkflowName ?? "",
+                    ["StepCount"] = analysisResult.StepCount,
+                    ["RequiredStatusCount"] = analysisResult.AllStatuses.Count,
+                    ["NewStatusCount"] = analysisResult.NewStatusCount,
+                    ["ExistingStatusCount"] = analysisResult.ExistingStatusCount,
+                    ["WasCached"] = analysisResult.WasCached,
+                    ["SqlTokensUsed"] = sqlResult.TokensUsed,
+                    ["SqlWarnings"] = sqlResult.Warnings,
+                    ["ValidationIssues"] = validationIssues.Count
+                };
+
+                if (sqlResult.Success)
                 {
                     result.GeneratedSql = sqlResult.GeneratedSql;
-                    result.Workflow.GeneratedSql = sqlResult.GeneratedSql;
+                    workflow.GeneratedSql = sqlResult.GeneratedSql;
+                    workflow.Status = "Generated";
+                    result.Message = "Workflow successfully analyzed with AI and SQL generated!";
+
+                    _logger.LogInformation("SQL generation completed successfully");
                 }
-                else if (!sqlResult.Success)
+                else
                 {
-                    result.Message = $"Workflow created but SQL generation failed: {sqlResult.ErrorMessage}";
+                    result.Message = $"AI analysis successful, but SQL generation failed: {sqlResult.ErrorMessage}";
+                    workflow.Status = "Analysis Complete";
+                    _logger.LogWarning("SQL generation failed: {error}", sqlResult.ErrorMessage);
                 }
 
-                stopwatch.Stop();
-                result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
+                // Store workflow
+                await _workflowService.SaveWorkflowAsync(workflow);
+
+                overallStopwatch.Stop();
+                result.ResponseTimeMs = overallStopwatch.ElapsedMilliseconds;
+
+                _logger.LogInformation("Complete workflow processing finished in {ms}ms. Success: {success}",
+                    overallStopwatch.ElapsedMilliseconds, result.Success);
 
                 return View("Result", result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating workflow");
+                overallStopwatch.Stop();
+                _logger.LogError(ex, "Error in AI-powered workflow creation");
+
+                processingSteps.Add($"✗ Unexpected error: {ex.Message}");
+
                 var errorResult = new WorkflowResultViewModel
                 {
                     Success = false,
-                    Message = $"Error processing workflow: {ex.Message}"
+                    Message = $"Unexpected error during AI processing: {ex.Message}",
+                    ResponseTimeMs = overallStopwatch.ElapsedMilliseconds,
+                    ProcessingSteps = processingSteps,
+                    AnalysisMetadata = new Dictionary<string, object>
+                    {
+                        ["ErrorType"] = ex.GetType().Name,
+                        ["TotalTimeMs"] = overallStopwatch.ElapsedMilliseconds
+                    }
                 };
                 return View("Result", errorResult);
             }
         }
 
+        /// <summary>
+        /// GET: /Workflow/List
+        /// Displays all workflows
+        /// </summary>
         [HttpGet]
-        public IActionResult List()
+        public async Task<IActionResult> List()
         {
-            var workflows = _workflowService.GetAllWorkflows();
-            return View(workflows);
+            try
+            {
+                var workflows = await _workflowService.GetAllWorkflowsAsync();
+
+                // Add metadata for enhanced display
+                ViewBag.TotalWorkflows = workflows.Count;
+                ViewBag.GeneratedWorkflows = workflows.Count(w => !string.IsNullOrEmpty(w.GeneratedSql));
+                ViewBag.RecentWorkflows = workflows.Count(w => w.CreatedAt > DateTime.UtcNow.AddDays(-7));
+
+                return View(workflows);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving workflow list");
+                TempData["ErrorMessage"] = "Error loading workflows. Please try again.";
+                return View(new List<WorkflowModel>());
+            }
         }
 
+        /// <summary>
+        /// GET: /Workflow/Details/{id}
+        /// Shows detailed view of a specific workflow
+        /// </summary>
         [HttpGet]
-        public IActionResult TestConnection()
+        public async Task<IActionResult> Details(int id)
         {
-            return View();
+            try
+            {
+                var workflow = await _workflowService.GetWorkflowByIdAsync(id);
+                if (workflow == null)
+                {
+                    TempData["ErrorMessage"] = $"Workflow with ID {id} not found.";
+                    return RedirectToAction(nameof(List));
+                }
+
+                return View(workflow);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving workflow {id}", id);
+                TempData["ErrorMessage"] = "Error loading workflow details.";
+                return RedirectToAction(nameof(List));
+            }
         }
 
+        /// <summary>
+        /// POST: /Workflow/ReAnalyze/{id}
+        /// Re-analyzes an existing workflow with current AI models
+        /// </summary>
         [HttpPost]
-        public async Task<IActionResult> TestOllamaConnection()
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReAnalyze(int id)
         {
-            var result = await _ollamaService.TestConnectionAsync();
-            return Json(new { isConnected = result.IsConnected, message = result.Message });
+            try
+            {
+                var result = await _workflowService.ReAnalyzeWorkflowAsync(id);
+                if (result.Success)
+                {
+                    TempData["SuccessMessage"] = "Workflow re-analyzed successfully with updated AI models.";
+                    return View("Result", result);
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = $"Re-analysis failed: {result.Message}";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-analyzing workflow {id}", id);
+                TempData["ErrorMessage"] = "Error during re-analysis. Please try again.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
         }
 
-        private string BuildSystemPrompt()
+        /// <summary>
+        /// GET: /Workflow/TestConnection
+        /// Displays AI service connection testing page
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> TestConnection()
         {
-            string existingSchema = "";
+            try
+            {
+                var configSummary = await _connectionTestService.GetConfigurationSummaryAsync();
+                var diagnostics = await _connectionTestService.PerformSystemDiagnosticsAsync();
 
-            // Try to load schema from file if configured
+                var viewModel = new ConnectionTestViewModel
+                {
+                    CloudProvider = configSummary.CloudProvider,
+                    LocalProvider = configSummary.LocalProvider,
+                    CloudModelId = configSummary.CloudModel,
+                    LocalModelId = configSummary.LocalModel,
+                    IsHybridSetup = configSummary.IsHybridSetup,
+                    Environment = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "Unknown",
+                    CloudEndpoint = GetCloudEndpointDisplay(),
+                    LocalEndpoint = _configuration["AI:Local:Endpoint"] ?? "http://localhost:11434",
+                    AvailableFeatures = configSummary.ConfiguredFeatures,
+                    ConfigurationWarnings = configSummary.MissingComponents,
+                    OptimizationSuggestions = diagnostics.OptimizationSuggestions,
+                    PerformanceMetrics = diagnostics.PerformanceMetrics
+                };
+
+                // Set last successful test results if available
+                if (diagnostics.Health.CloudService.IsConnected)
+                    viewModel.LastCloudTest = diagnostics.Health.CloudService;
+
+                if (diagnostics.Health.LocalService.IsConnected)
+                    viewModel.LastLocalTest = diagnostics.Health.LocalService;
+
+                return View(viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading connection test page");
+
+                var basicViewModel = ConnectionTestViewModel.CreateBasic(
+                    _configuration["AI:Cloud:Provider"],
+                    _configuration["AI:Local:Provider"]);
+
+                basicViewModel.ConfigurationWarnings.Add("Error loading diagnostics");
+                return View(basicViewModel);
+            }
+        }
+
+        /// <summary>
+        /// POST: /Workflow/TestCloudConnection
+        /// Tests cloud AI service connection
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> TestCloudConnection()
+        {
+            try
+            {
+                var result = await _connectionTestService.TestCloudConnectionAsync();
+                return Json(new
+                {
+                    isConnected = result.IsConnected,
+                    message = result.Message,
+                    provider = result.Provider,
+                    modelId = result.ModelId,
+                    responseTimeMs = result.ResponseTimeMs,
+                    details = result.Details
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing cloud connection");
+                return Json(new
+                {
+                    isConnected = false,
+                    message = $"Connection test error: {ex.Message}",
+                    provider = _configuration["AI:Cloud:Provider"] ?? "Unknown"
+                });
+            }
+        }
+
+        /// <summary>
+        /// POST: /Workflow/TestLocalConnection
+        /// Tests local AI service connection
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> TestLocalConnection()
+        {
+            try
+            {
+                var result = await _connectionTestService.TestLocalConnectionAsync();
+                return Json(new
+                {
+                    isConnected = result.IsConnected,
+                    message = result.Message,
+                    provider = result.Provider,
+                    modelId = result.ModelId,
+                    responseTimeMs = result.ResponseTimeMs,
+                    details = result.Details
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing local connection");
+                return Json(new
+                {
+                    isConnected = false,
+                    message = $"Connection test error: {ex.Message}",
+                    provider = _configuration["AI:Local:Provider"] ?? "Unknown"
+                });
+            }
+        }
+
+        /// <summary>
+        /// POST: /Workflow/TestAllConnections
+        /// Tests both cloud and local AI services
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> TestAllConnections()
+        {
+            try
+            {
+                var health = await _connectionTestService.TestAllConnectionsAsync();
+                return Json(new
+                {
+                    isHealthy = health.IsHealthy,
+                    cloudService = new
+                    {
+                        isConnected = health.CloudService.IsConnected,
+                        message = health.CloudService.Message,
+                        responseTimeMs = health.CloudService.ResponseTimeMs
+                    },
+                    localService = new
+                    {
+                        isConnected = health.LocalService.IsConnected,
+                        message = health.LocalService.Message,
+                        responseTimeMs = health.LocalService.ResponseTimeMs
+                    },
+                    warnings = health.Warnings,
+                    recommendations = health.Recommendations
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing all connections");
+                return Json(new
+                {
+                    isHealthy = false,
+                    message = $"System health check failed: {ex.Message}"
+                });
+            }
+        }
+
+        /// <summary>
+        /// GET: /Workflow/SystemDiagnostics
+        /// Returns detailed system diagnostics as JSON
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> SystemDiagnostics()
+        {
+            try
+            {
+                var diagnostics = await _connectionTestService.PerformSystemDiagnosticsAsync();
+                return Json(diagnostics);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error performing system diagnostics");
+                return Json(new { error = $"Diagnostics failed: {ex.Message}" });
+            }
+        }
+
+        #region Helper Methods
+
+        private string BuildEnhancedSystemPrompt()
+        {
+            var schemaContent = GetWorkflowSchema();
+
+            return $@"You are an expert SQL developer working with the PAWS workflow management system.
+Your task is to generate ONLY SQL INSERT statements based on detailed AI-analyzed workflow information.
+
+You will receive:
+1. AI-extracted workflow name
+2. AI-analyzed workflow steps with roles and outcomes  
+3. AI-determined required statuses (existing and new)
+
+CRITICAL RULES:
+1. Generate ONLY INSERT statements, no DDL
+2. Follow INSERT order: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition
+3. Use NEWID() for uniqueidentifier columns
+4. Number activities sequentially starting from 1
+5. Create logical transitions based on AI-analyzed step outcomes
+6. Use existing status IDs where provided
+7. Add comments for any new statuses that need manual creation
+
+EXISTING DATABASE SCHEMA:
+{schemaContent}
+
+Generate comprehensive INSERT statements with detailed comments explaining the AI-driven workflow logic.
+Each INSERT should reference the AI analysis that led to its creation.";
+        }
+
+        private string BuildEnhancedUserPrompt(WorkflowAnalysisResult analysisResult)
+        {
+            var prompt = new StringBuilder();
+            prompt.AppendLine("Generate SQL INSERT statements for this AI-analyzed workflow:");
+            prompt.AppendLine();
+            prompt.AppendLine($"AI-EXTRACTED WORKFLOW NAME: {analysisResult.WorkflowName}");
+            prompt.AppendLine();
+
+            if (analysisResult.Steps != null && analysisResult.Steps.Any())
+            {
+                prompt.AppendLine("AI-ANALYZED WORKFLOW STEPS:");
+                foreach (var step in analysisResult.Steps.OrderBy(s => s.Order))
+                {
+                    prompt.AppendLine($"{step.Order}. {step.Title}");
+                    prompt.AppendLine($"   Description: {step.Description}");
+                    if (!string.IsNullOrEmpty(step.AssignedRole))
+                        prompt.AppendLine($"   AI-Identified Role: {step.AssignedRole}");
+                    if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
+                        prompt.AppendLine($"   AI-Identified Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
+                    prompt.AppendLine();
+                }
+            }
+
+            if (analysisResult.AllStatuses.Any())
+            {
+                prompt.AppendLine("AI-DETERMINED STATUS MAPPING:");
+                var existingStatuses = analysisResult.ExistingStatuses ?? new List<WorkflowStatus>();
+                var newStatuses = analysisResult.RequiredStatuses ?? new List<WorkflowStatus>();
+
+                if (existingStatuses.Any())
+                {
+                    prompt.AppendLine("Use these existing status IDs:");
+                    foreach (var status in existingStatuses)
+                    {
+                        prompt.AppendLine($"- {status.Name} (Use existing ID: {status.ExistingId})");
+                    }
+                }
+
+                if (newStatuses.Any())
+                {
+                    prompt.AppendLine("New statuses needed (add comments about manual creation):");
+                    foreach (var status in newStatuses)
+                    {
+                        prompt.AppendLine($"- {status.Name}: {status.Description}");
+                    }
+                }
+            }
+
+            prompt.AppendLine();
+            prompt.AppendLine("Generate SQL including:");
+            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the AI-extracted workflow name");
+            prompt.AppendLine("2. INSERT statements for PAWSActivity based on AI-analyzed steps");
+            prompt.AppendLine("3. INSERT statements for PAWSActivityTransition based on AI-identified outcomes");
+            prompt.AppendLine("4. Comments explaining how AI analysis drove each SQL statement");
+            prompt.AppendLine("5. Comments for any new statuses requiring manual PAWSActivityStatus entries");
+
+            return prompt.ToString();
+        }
+
+        private string GetWorkflowSchema()
+        {
             if (_configuration.GetValue<bool>("WorkflowSchema:UseSchemaFile"))
             {
                 var schemaFile = _configuration["WorkflowSchema:SchemaFile"] ?? "workflow-schema.sql";
                 var schemaPath = Path.Combine(Directory.GetCurrentDirectory(), schemaFile);
 
-
                 if (System.IO.File.Exists(schemaPath))
                 {
-                    existingSchema = System.IO.File.ReadAllText(schemaPath);
-                    _logger.LogInformation($"Loaded schema from {schemaFile}");
+                    return System.IO.File.ReadAllText(schemaPath);
                 }
                 else
                 {
-                    _logger.LogWarning($"Schema file {schemaFile} not found. Using placeholder schema.");
-                    existingSchema = GetPlaceholderSchema();
+                    _logger.LogWarning("Schema file {schemaFile} not found at {schemaPath}", schemaFile, schemaPath);
                 }
             }
-            else
-            {
-                existingSchema = GetPlaceholderSchema();
-            }
 
-            return $@"You are an expert SQL developer working with an existing workflow management system database. 
-Your task is to generate ONLY SQL INSERT statements to populate the existing tables based on workflow descriptions.
-
-CRITICAL RULES:
-1. DO NOT generate any CREATE TABLE, ALTER TABLE, CREATE PROCEDURE, or any other DDL statements
-2. ONLY generate INSERT statements for data
-3. Use only the tables and columns that exist in the provided schema
-4. Ensure all foreign key relationships are respected
-5. Generate realistic and appropriate data based on the workflow description
-6. Include proper values for all required (NOT NULL) columns
-7. Use appropriate default values where necessary
-8. Generate multiple related INSERT statements to fully represent the workflow
-
-EXISTING DATABASE SCHEMA:
-{existingSchema}
-
-When generating INSERT statements:
-- Start with parent table records before child table records (respect foreign key dependencies)
-- Use meaningful, descriptive values based on the workflow description
-- Include comments to explain what each INSERT represents
-- Group related INSERTs together
-- Ensure data integrity across all related tables
-- Use proper SQL Server syntax and formatting
-- Include SET IDENTITY_INSERT ON/OFF if inserting specific ID values
-
-Output ONLY valid SQL INSERT statements that can be executed directly in SQL Server Management Studio.
-Do not include any explanatory text outside of SQL comments.";
+            return GetPlaceholderSchema();
         }
 
         private string GetPlaceholderSchema()
         {
-            return @"
--- IMPORTANT: Replace this with your actual workflow schema
--- Create a file named 'workflow-schema.sql' in your application root directory
--- Or modify this method to return your actual schema
-
--- Example schema structure:
--- CREATE TABLE YourWorkflowTable (
---     Id INT IDENTITY(1,1) PRIMARY KEY,
---     WorkflowName NVARCHAR(200) NOT NULL,
---     Status NVARCHAR(50),
---     CreatedDate DATETIME DEFAULT GETDATE()
--- );
-
--- Your actual tables should be defined here
-";
+            return @"-- Please ensure your actual PAWS workflow schema is loaded
+-- from the workflow-schema.sql file in your project root
+-- This placeholder schema is used when the schema file is not found";
         }
 
-
-        private string BuildUserPrompt(string description, List<string>? steps)
+        private string GetCloudEndpointDisplay()
         {
-            var prompt = $"Generate SQL INSERT statements for the following workflow:\n\n";
-            prompt += $"Workflow Description: {description}\n\n";
-
-            if (steps != null && steps.Any())
+            var provider = _configuration["AI:Cloud:Provider"]?.ToLower();
+            return provider switch
             {
-                prompt += "Identified Workflow Steps:\n";
-                for (int i = 0; i < steps.Count; i++)
-                {
-                    prompt += $"{i + 1}. {steps[i]}\n";
-                }
-            }
-
-            prompt += "\nPlease generate:\n";
-            prompt += "1. INSERT statements for all necessary workflow records\n";
-            prompt += "2. Ensure all foreign key relationships are properly maintained\n";
-            prompt += "3. Include appropriate data for workflow steps, transitions, and any related tables\n";
-            prompt += "4. Add SQL comments to explain each section of INSERTs\n";
-            prompt += "5. Ensure all SQL is compatible with SQL Server 2019 or later";
-
-            return prompt;
+                "openai" => "https://api.openai.com",
+                "azure" => _configuration["AI:Cloud:Azure:Endpoint"] ?? "Azure OpenAI",
+                "anthropic" => "https://api.anthropic.com",
+                _ => "Local fallback"
+            };
         }
+
+        private async Task<int> GetNextWorkflowIdAsync()
+        {
+            // In a real application, this would be handled by the database
+            // For now, we'll use a simple in-memory counter
+            var workflows = await _workflowService.GetAllWorkflowsAsync();
+            return workflows.Any() ? workflows.Max(w => w.Id) + 1 : 1;
+        }
+
+        #endregion
     }
 }

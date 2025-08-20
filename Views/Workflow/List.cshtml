@@ -1,6 +1,10 @@
-﻿@model List<WorkflowCreator.Models.WorkflowModel>
+﻿<!-- Views/Workflow/List.cshtml -->
+@model List<WorkflowCreator.Models.WorkflowModel>
 @{
-    ViewData["Title"] = "My Workflows";
+    ViewData["Title"] = "My AI-Generated Workflows";
+    var totalWorkflows = ViewBag.TotalWorkflows as int? ?? Model.Count;
+    var generatedWorkflows = ViewBag.GeneratedWorkflows as int? ?? Model.Count(w => !string.IsNullOrEmpty(w.GeneratedSql));
+    var recentWorkflows = ViewBag.RecentWorkflows as int? ?? Model.Count(w => w.CreatedAt > DateTime.UtcNow.AddDays(-7));
 }
 
 <!DOCTYPE html>
@@ -8,13 +12,25 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - SQL Workflow Generator</title>
+    <title>@ViewData["Title"] - WorkflowCreator</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-custom {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #667eea;
+        }
+
+        .list-container {
+            padding-top: 30px;
+            padding-bottom: 50px;
         }
 
         .list-card {
@@ -22,32 +38,156 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.15);
             padding: 40px;
-            margin-top: 50px;
+            margin-bottom: 30px;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from
+
+        {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header-title {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stats-section {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #2196f3;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border-left: 4px solid #2196f3;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
         }
 
         .workflow-item {
+            background: white;
             border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 15px;
+            padding: 25px;
             margin-bottom: 20px;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
+
+            .workflow-item::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 4px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
 
             .workflow-item:hover {
                 transform: translateY(-5px);
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+                border-color: #667eea;
             }
+
+        .workflow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .workflow-title {
+            margin: 0;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .workflow-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .workflow-description {
+            color: #6c757d;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .workflow-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .meta-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            color: #667eea;
+        }
 
         .sql-preview {
             background: #2d2d2d;
             color: #f8f8f2;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: monospace;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 12px;
-            max-height: 100px;
+            max-height: 120px;
             overflow: hidden;
             position: relative;
+            margin-bottom: 15px;
         }
 
             .sql-preview::after {
@@ -59,70 +199,505 @@
                 height: 30px;
                 background: linear-gradient(transparent, #2d2d2d);
             }
+
+        .workflow-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm-custom {
+            padding: 6px 15px;
+            font-size: 12px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+            .btn-sm-custom:hover {
+                transform: translateY(-1px);
+            }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .search-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #dee2e6;
+        }
+
+        .floating-add {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+
+        .btn-floating {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            color: white;
+            font-size: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+            .btn-floating:hover {
+                transform: scale(1.1);
+                box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+                color: white;
+            }
+
+        @media (max-width: 768px) {
+            .list-card
+
+        {
+            padding: 20px;
+            margin: 10px;
+        }
+
+        .workflow-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .workflow-meta {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-10">
-                <div class="list-card">
-                    <h2 class="mb-4">
-                        <i class="fas fa-history me-2"></i>My SQL Workflows
-                    </h2>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-brain me-2 text-primary"></i>AI Workflow Creator
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/Workflow"><i class="fas fa-plus me-1"></i>Create</a>
+                <a class="nav-link active" href="/Workflow/List"><i class="fas fa-list me-1"></i>Workflows</a>
+                <a class="nav-link" href="/Workflow/TestConnection"><i class="fas fa-network-wired me-1"></i>Diagnostics</a>
+            </div>
+        </div>
+    </nav>
 
+    <div class="container list-container">
+        <div class="row">
+            <div class="col-12">
+
+                <!-- Header -->
+                <div class="list-card">
+                    <div class="header-section">
+                        <h1 class="header-title fw-bold">
+                            <i class="fas fa-history me-2"></i>My AI-Generated Workflows
+                        </h1>
+                        <p class="text-muted fs-5">Manage your workflows created with hybrid AI technology</p>
+                    </div>
+
+                    <!-- Statistics -->
                     @if (Model.Any())
                     {
-                        @foreach (var workflow in Model.OrderByDescending(w => w.CreatedAt))
-                        {
-                            <div class="workflow-item">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <h5 class="mb-1">
-                                            <i class="fas fa-project-diagram me-2 text-primary"></i>
-                                            @workflow.Name
-                                        </h5>
-                                        <span class="badge bg-success">
-                                            @(string.IsNullOrEmpty(workflow.GeneratedSql) ? "Processing" : "SQL Generated")
-                                        </span>
-                                    </div>
-                                    <small class="text-muted">
-                                        <i class="fas fa-calendar me-1"></i>
-                                        @workflow.CreatedAt.ToString("yyyy-MM-dd HH:mm")
-                                    </small>
+                        <div class="stats-section">
+                            <h5 class="fw-bold mb-3">
+                                <i class="fas fa-chart-bar me-2"></i>Overview
+                            </h5>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-value">@totalWorkflows</div>
+                                    <div class="stat-label">Total Workflows</div>
                                 </div>
-
-                                <p class="text-muted mb-2">@workflow.Description</p>
-
-                                @if (!string.IsNullOrEmpty(workflow.GeneratedSql))
-                                {
-                                    <div class="sql-preview">
-                                        @workflow.GeneratedSql.Substring(0, Math.Min(workflow.GeneratedSql.Length, 300))...
-                                    </div>
-                                }
+                                <div class="stat-item">
+                                    <div class="stat-value">@generatedWorkflows</div>
+                                    <div class="stat-label">With Generated SQL</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">@recentWorkflows</div>
+                                    <div class="stat-label">Created This Week</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">@Math.Round((double)generatedWorkflows / totalWorkflows * 100, 1)%</div>
+                                    <div class="stat-label">Success Rate</div>
+                                </div>
                             </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-center py-5">
-                            <i class="fas fa-database fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No workflows created yet.</p>
-                            <a href="/Workflow" class="btn btn-primary">
-                                <i class="fas fa-plus me-1"></i>Create Your First Workflow
-                            </a>
                         </div>
                     }
 
-                    <div class="text-center mt-4">
-                        <a href="/Workflow" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i>Create New Workflow
-                        </a>
+                    <!-- Search -->
+                    <div class="search-section">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" placeholder="Search workflows by name or description..."
+                                           id="searchInput" onkeyup="filterWorkflows()">
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-filter me-1"></i>Filter
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" onclick="filterByStatus('all')">All Workflows</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="filterByStatus('Generated')">SQL Generated</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="filterByStatus('Analyzed')">Analysis Only</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="filterByStatus('Processing')">Processing</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Workflow List -->
+                @if (Model.Any())
+                {
+                    <div id="workflowList">
+                        @foreach (var workflow in Model.OrderByDescending(w => w.CreatedAt))
+                        {
+                            <div class="list-card workflow-item" data-status="@workflow.Status" data-name="@workflow.Name?.ToLower()" data-description="@workflow.Description?.ToLower()">
+                                <div class="workflow-header">
+                                    <div>
+                                        <h4 class="workflow-title">
+                                            <i class="fas fa-project-diagram me-2 text-primary"></i>
+                                            @workflow.Name
+                                        </h4>
+                                        <div class="workflow-badges">
+                                            <span class="badge bg-@(GetStatusBadgeClass(workflow.Status))">
+                                                @workflow.Status
+                                            </span>
+                                            @if (!string.IsNullOrEmpty(workflow.GeneratedSql))
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-database me-1"></i>SQL Generated
+                                                </span>
+                                            }
+                                            @if (workflow.CreatedAt > DateTime.UtcNow.AddDays(-1))
+                                            {
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-clock me-1"></i>Recent
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            @workflow.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="workflow-description">
+                                    @if (workflow.Description?.Length > 200)
+                                    {
+                                        <span>@workflow.Description.Substring(0, 200)...</span>
+                                        <a href="#" onclick="toggleDescription(@workflow.Id)" class="text-primary">Read more</a>
+                                        <div id="fullDescription@(workflow.Id)" style="display: none;">
+                                            @workflow.Description
+                                            <a href="#" onclick="toggleDescription(@workflow.Id)" class="text-primary">Show less</a>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @workflow.Description
+                                    }
+                                </div>
+
+                                <div class="workflow-meta">
+                                    <div class="meta-item">
+                                        <div class="meta-icon"><i class="fas fa-hashtag"></i></div>
+                                        <span><strong>ID:</strong> @workflow.Id</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <div class="meta-icon"><i class="fas fa-brain"></i></div>
+                                        <span><strong>AI Processing:</strong> Semantic Kernel</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <div class="meta-icon"><i class="fas fa-clock"></i></div>
+                                        <span><strong>Age:</strong> @GetWorkflowAge(workflow.CreatedAt)</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <div class="meta-icon"><i class="fas fa-code"></i></div>
+                                        <span><strong>SQL Size:</strong> @GetSqlSize(workflow.GeneratedSql)</span>
+                                    </div>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(workflow.GeneratedSql))
+                                {
+                                    <div class="sql-preview" onclick="expandSql(@workflow.Id)">
+                                        <div class="small text-muted mb-1">
+                                            <i class="fas fa-database me-1"></i>Generated SQL (click to expand):
+                                        </div>
+                                        @workflow.GeneratedSql.Substring(0, Math.Min(workflow.GeneratedSql.Length, 300))...
+                                    </div>
+                                }
+
+                                <div class="workflow-actions">
+                                    <a href="/Workflow/Details/@workflow.Id" class="btn btn-primary btn-sm-custom">
+                                        <i class="fas fa-eye me-1"></i>View Details
+                                    </a>
+
+                                    @if (!string.IsNullOrEmpty(workflow.GeneratedSql))
+                                    {
+                                        <button class="btn btn-success btn-sm-custom" onclick="copySql(@workflow.Id)">
+                                            <i class="fas fa-copy me-1"></i>Copy SQL
+                                        </button>
+                                        <button class="btn btn-info btn-sm-custom" onclick="downloadSql(@workflow.Id, '@workflow.Name')">
+                                            <i class="fas fa-download me-1"></i>Download
+                                        </button>
+                                    }
+
+                                    <form asp-action="ReAnalyze" asp-route-id="@workflow.Id" method="post" style="display: inline;">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm-custom"
+                                                onclick="return confirm('Re-analyze this workflow with current AI models?')">
+                                            <i class="fas fa-redo me-1"></i>Re-Analyze
+                                        </button>
+                                    </form>
+
+                                    <button class="btn btn-outline-danger btn-sm-custom" onclick="deleteWorkflow(@workflow.Id, '@workflow.Name')">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </div>
+
+                                <!-- Hidden full SQL for copying -->
+                                <textarea id="sql@(workflow.Id)" style="display: none;">@workflow.GeneratedSql</textarea>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <!-- Empty State -->
+                    <div class="list-card">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <h3>No AI-Generated Workflows Yet</h3>
+                            <p class="mb-4">Create your first workflow using our advanced AI analysis and SQL generation capabilities.</p>
+                            <a href="/Workflow" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus me-2"></i>Create Your First AI Workflow
+                            </a>
+                        </div>
+                    </div>
+                }
+
+                <!-- Actions -->
+                @if (Model.Any())
+                {
+                    <div class="list-card">
+                        <div class="text-center">
+                            <h4><i class="fas fa-rocket me-2"></i>Quick Actions</h4>
+                            <div class="d-flex justify-content-center gap-3 flex-wrap mt-3">
+                                <a href="/Workflow" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Create New Workflow
+                                </a>
+                                <a href="/Workflow/TestConnection" class="btn btn-outline-info">
+                                    <i class="fas fa-network-wired me-2"></i>Test AI Services
+                                </a>
+                                <button class="btn btn-outline-secondary" onclick="exportAllWorkflows()">
+                                    <i class="fas fa-download me-2"></i>Export All SQL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     </div>
 
+    <!-- Floating Add Button -->
+    <div class="floating-add">
+        <a href="/Workflow" class="btn btn-floating" data-bs-toggle="tooltip" data-bs-placement="left" title="Create new AI workflow">
+            <i class="fas fa-plus"></i>
+        </a>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function filterWorkflows() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const workflows = document.querySelectorAll('.workflow-item');
+
+            workflows.forEach(workflow => {
+                const name = workflow.getAttribute('data-name') || '';
+                const description = workflow.getAttribute('data-description') || '';
+                const isVisible = name.includes(searchTerm) || description.includes(searchTerm);
+                workflow.style.display = isVisible ? 'block' : 'none';
+            });
+        }
+
+        function filterByStatus(status) {
+            const workflows = document.querySelectorAll('.workflow-item');
+
+            workflows.forEach(workflow => {
+                if (status === 'all') {
+                    workflow.style.display = 'block';
+                } else {
+                    const workflowStatus = workflow.getAttribute('data-status');
+                    workflow.style.display = workflowStatus === status ? 'block' : 'none';
+                }
+            });
+        }
+
+        function toggleDescription(workflowId) {
+            const fullDesc = document.getElementById(`fullDescription${workflowId}`);
+            if (fullDesc.style.display === 'none') {
+                fullDesc.style.display = 'block';
+                fullDesc.previousElementSibling.style.display = 'none';
+            } else {
+                fullDesc.style.display = 'none';
+                fullDesc.previousElementSibling.style.display = 'inline';
+            }
+        }
+
+        function expandSql(workflowId) {
+            // Open details page for full SQL view
+            window.location.href = `/Workflow/Details/${workflowId}`;
+        }
+
+        function copySql(workflowId) {
+            const sqlTextarea = document.getElementById(`sql${workflowId}`);
+            sqlTextarea.select();
+            document.execCommand('copy');
+
+            // Visual feedback
+            event.target.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+            event.target.classList.add('btn-success');
+
+            setTimeout(() => {
+                event.target.innerHTML = '<i class="fas fa-copy me-1"></i>Copy SQL';
+                event.target.classList.remove('btn-success');
+            }, 2000);
+        }
+
+        function downloadSql(workflowId, workflowName) {
+            const sql = document.getElementById(`sql${workflowId}`).value;
+            const filename = `${workflowName.replace(/[^a-zA-Z0-9]/g, '_')}_SQL_${new Date().toISOString().split('T')[0]}.sql`;
+
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(sql));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        function deleteWorkflow(workflowId, workflowName) {
+            if (confirm(`Are you sure you want to delete the workflow "${workflowName}"?\n\nThis action cannot be undone.`)) {
+                fetch(`/Workflow/Delete/${workflowId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to delete workflow: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting workflow: ' + error.message);
+                });
+            }
+        }
+
+        function exportAllWorkflows() {
+            const allSql = Array.from(document.querySelectorAll('[id^="sql"]'))
+                .map(textarea => textarea.value)
+                .filter(sql => sql.trim().length > 0)
+                .join('\n\n-- =============================================\n-- Next Workflow\n-- =============================================\n\n');
+
+            if (allSql.length === 0) {
+                alert('No SQL to export. Generate some workflows first!');
+                return;
+            }
+
+            const filename = `All_Workflows_SQL_${new Date().toISOString().split('T')[0]}.sql`;
+
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(allSql));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
 </body>
 </html>
+
+@functions {
+    private string GetStatusBadgeClass(string? status)
+    {
+        return status?.ToLower() switch
+        {
+            "generated" => "success",
+            "analyzed" => "warning",
+            "processing" => "info",
+            "error" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetWorkflowAge(DateTime createdAt)
+    {
+        var age = DateTime.UtcNow - createdAt;
+        if (age.TotalDays >= 1)
+            return $"{(int)age.TotalDays} day{((int)age.TotalDays > 1 ? "s" : "")} ago";
+        if (age.TotalHours >= 1)
+            return $"{(int)age.TotalHours} hour{((int)age.TotalHours > 1 ? "s" : "")} ago";
+        return $"{(int)age.TotalMinutes} minute{((int)age.TotalMinutes > 1 ? "s" : "")} ago";
+    }
+
+    private string GetSqlSize(string? sql)
+    {
+        if (string.IsNullOrEmpty(sql)) return "No SQL";
+
+        var lines = sql.Split('\n').Length;
+        var chars = sql.Length;
+
+        if (chars > 1024)
+            return $"{chars / 1024:F1}KB ({lines} lines)";
+        return $"{chars} chars ({lines} lines)";
+    }
+}
