@@ -145,10 +145,11 @@ namespace WorkflowCreator.Controllers
                 _logger.LogInformation("Phase 2: Generating SQL with local AI");
 
                 var sqlStopwatch = Stopwatch.StartNew();
-                var systemPrompt = BuildEnhancedSystemPrompt();
-                var userPrompt = BuildEnhancedUserPrompt(analysisResult);
+                //var systemPrompt = BuildEnhancedSystemPrompt();
+                //var userPrompt = BuildEnhancedUserPrompt(analysisResult);
+                var schemaContext = GetWorkflowSchema();
 
-                var sqlResult = await _sqlService.GenerateEnhancedSqlAsync(analysisResult, systemPrompt);
+                var sqlResult = await _sqlService.GenerateEnhancedSqlAsync(analysisResult, schemaContext);
                 sqlStopwatch.Stop();
 
                 processingSteps.Add(sqlResult.Success
@@ -161,8 +162,8 @@ namespace WorkflowCreator.Controllers
                     Success = sqlResult.Success,
                     Workflow = workflow,
                     Steps = analysisResult.Steps?.Select(s => $"{s.Title}: {s.Description}").ToList(),
-                    SystemPrompt = systemPrompt,
-                    UserPrompt = userPrompt,
+                    SystemPrompt = sqlResult.SystemPrompt,
+                    UserPrompt = sqlResult.UserPrompt,
                     ProcessingSteps = processingSteps,
                     RequiredStatuses = analysisResult.RequiredStatuses,
                     ExistingStatuses = analysisResult.ExistingStatuses,
@@ -496,60 +497,32 @@ namespace WorkflowCreator.Controllers
 
         #region Helper Methods
 
-        private string BuildEnhancedSystemPrompt()
-        {
-            var schemaContent = GetWorkflowSchema();
-
-            return $@"You are an expert SQL developer working with the PAWS workflow management system.
-Your task is to generate ONLY SQL INSERT statements based on detailed AI-analyzed workflow information.
-
-You will receive:
-1. AI-extracted workflow name
-2. AI-analyzed workflow steps with roles and outcomes  
-3. AI-determined required statuses (existing and new)
-
-CRITICAL RULES:
-1. Generate ONLY INSERT statements, no DDL
-2. Follow INSERT order: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition
-3. Use NEWID() for uniqueidentifier columns
-4. Number activities sequentially starting from 1
-5. Create logical transitions based on AI-analyzed step outcomes
-6. Use existing status IDs where provided
-7. Add comments for any new statuses that need manual creation
-
-EXISTING DATABASE SCHEMA:
-{schemaContent}
-
-Generate comprehensive INSERT statements with detailed comments explaining the AI-driven workflow logic.
-Each INSERT should reference the AI analysis that led to its creation.";
-        }
-
         private string BuildEnhancedUserPrompt(WorkflowAnalysisResult analysisResult)
         {
             var prompt = new StringBuilder();
-            prompt.AppendLine("Generate SQL INSERT statements for this AI-analyzed workflow:");
+            prompt.AppendLine("Generate SQL INSERT statements for this workflow:");
             prompt.AppendLine();
-            prompt.AppendLine($"AI-EXTRACTED WORKFLOW NAME: {analysisResult.WorkflowName}");
+            prompt.AppendLine($"WORKFLOW NAME: {analysisResult.WorkflowName}");
             prompt.AppendLine();
 
             if (analysisResult.Steps != null && analysisResult.Steps.Any())
             {
-                prompt.AppendLine("AI-ANALYZED WORKFLOW STEPS:");
+                prompt.AppendLine("WORKFLOW STEPS:");
                 foreach (var step in analysisResult.Steps.OrderBy(s => s.Order))
                 {
                     prompt.AppendLine($"{step.Order}. {step.Title}");
                     prompt.AppendLine($"   Description: {step.Description}");
                     if (!string.IsNullOrEmpty(step.AssignedRole))
-                        prompt.AppendLine($"   AI-Identified Role: {step.AssignedRole}");
+                        prompt.AppendLine($"   Role: {step.AssignedRole}");
                     if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
-                        prompt.AppendLine($"   AI-Identified Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
+                        prompt.AppendLine($"   Possible Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
                     prompt.AppendLine();
                 }
             }
 
             if (analysisResult.AllStatuses.Any())
             {
-                prompt.AppendLine("AI-DETERMINED STATUS MAPPING:");
+                prompt.AppendLine("STATUS MAPPING:");
                 var existingStatuses = analysisResult.ExistingStatuses ?? new List<WorkflowStatus>();
                 var newStatuses = analysisResult.RequiredStatuses ?? new List<WorkflowStatus>();
 
@@ -564,7 +537,7 @@ Each INSERT should reference the AI analysis that led to its creation.";
 
                 if (newStatuses.Any())
                 {
-                    prompt.AppendLine("New statuses needed (add comments about manual creation):");
+                    prompt.AppendLine("New statuses needed:");
                     foreach (var status in newStatuses)
                     {
                         prompt.AppendLine($"- {status.Name}: {status.Description}");
@@ -574,11 +547,11 @@ Each INSERT should reference the AI analysis that led to its creation.";
 
             prompt.AppendLine();
             prompt.AppendLine("Generate SQL including:");
-            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the AI-extracted workflow name");
-            prompt.AppendLine("2. INSERT statements for PAWSActivity based on AI-analyzed steps");
-            prompt.AppendLine("3. INSERT statements for PAWSActivityTransition based on AI-identified outcomes");
-            prompt.AppendLine("4. Comments explaining how AI analysis drove each SQL statement");
-            prompt.AppendLine("5. Comments for any new statuses requiring manual PAWSActivityStatus entries");
+            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the workflow name");
+            prompt.AppendLine("2. INSERT statements for PAWSActivity based on the workflow steps");
+            prompt.AppendLine("3. INSERT statements for PAWSActivityStatus for any new workflow statuses. Include comments for any new statuses.");
+            prompt.AppendLine("4. INSERT statements for PAWSActivityTransition based on the workflow steps and their outcomes");
+            prompt.AppendLine("5. Comments explaining how AI analysis drove each SQL statement");
 
             return prompt.ToString();
         }

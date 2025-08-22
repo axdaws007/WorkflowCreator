@@ -92,7 +92,9 @@ namespace WorkflowCreator.Services
                         ["CleanedSqlLength"] = cleanedSql.Length,
                         ["HasWarnings"] = warnings.Any(),
                         ["Provider"] = _configuration["AI:Local:Provider"] ?? "Unknown"
-                    }
+                    },
+                    SystemPrompt = systemPrompt,
+                    UserPrompt = userPrompt
                 };
             }
             catch (Exception ex)
@@ -110,7 +112,9 @@ namespace WorkflowCreator.Services
                     {
                         ["ErrorType"] = ex.GetType().Name,
                         ["Provider"] = _configuration["AI:Local:Provider"] ?? "Unknown"
-                    }
+                    },
+                    SystemPrompt = systemPrompt,
+                    UserPrompt = userPrompt 
                 };
             }
         }
@@ -128,10 +132,10 @@ namespace WorkflowCreator.Services
                 };
             }
 
-            var enhancedPrompt = BuildEnhancedPrompt(analysisResult, schemaContext);
             var systemPrompt = BuildEnhancedSystemPrompt(schemaContext);
+            var userPrompt = BuildEnhancedPrompt(analysisResult, schemaContext);
 
-            return await GenerateSqlAsync(systemPrompt, enhancedPrompt);
+            return await GenerateSqlAsync(systemPrompt, userPrompt);
         }
 
         public async Task<bool> TestLocalConnectionAsync()
@@ -300,8 +304,8 @@ namespace WorkflowCreator.Services
                 {
                     prompt.AppendLine($"{step.Order}. {step.Title}");
                     prompt.AppendLine($"   Description: {step.Description}");
-                    if (!string.IsNullOrEmpty(step.AssignedRole))
-                        prompt.AppendLine($"   Role: {step.AssignedRole}");
+                    //if (!string.IsNullOrEmpty(step.AssignedRole))
+                    //    prompt.AppendLine($"   Role: {step.AssignedRole}");
                     if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
                         prompt.AppendLine($"   Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
                     prompt.AppendLine();
@@ -325,7 +329,7 @@ namespace WorkflowCreator.Services
 
                 if (newStatuses.Any())
                 {
-                    prompt.AppendLine("New statuses needed (add comments about manual creation):");
+                    prompt.AppendLine("New statuses needed:");
                     foreach (var status in newStatuses)
                     {
                         prompt.AppendLine($"- {status.Name}: {status.Description}");
@@ -333,27 +337,41 @@ namespace WorkflowCreator.Services
                 }
             }
 
+            prompt.AppendLine();
+            prompt.AppendLine("Generate SQL including:");
+            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the workflow name");
+            prompt.AppendLine("2. INSERT statements for PAWSActivity based on the workflow steps");
+            prompt.AppendLine("3. INSERT statements for PAWSActivityStatus for any new workflow statuses. Include comments for any new statuses.");
+            prompt.AppendLine("4. INSERT statements for PAWSActivityTransition based on the workflow steps and their outcomes");
+            prompt.AppendLine("5. Comments explaining how AI analysis drove each SQL statement");
+
             return prompt.ToString();
         }
 
         private string BuildEnhancedSystemPrompt(string schemaContext)
         {
             return $@"You are an expert SQL developer working with the PAWS workflow management system.
-Generate ONLY SQL INSERT statements based on AI-analyzed workflow information.
+Your task is to generate ONLY SQL INSERT statements based on detailed AI-analyzed workflow information.
+
+You will receive:
+1. AI-extracted workflow name
+2. AI-analyzed workflow steps with roles and outcomes  
+3. AI-determined required statuses (existing and new)
 
 CRITICAL RULES:
 1. Generate ONLY INSERT statements, no DDL
-2. Follow INSERT order: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition  
+2. Follow INSERT order: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition
 3. Use NEWID() for uniqueidentifier columns
 4. Number activities sequentially starting from 1
-5. Create logical transitions based on workflow steps and outcomes
+5. Create logical transitions based on AI-analyzed step outcomes
 6. Use existing status IDs where provided
 7. Add comments for any new statuses that need manual creation
 
-DATABASE SCHEMA:
+EXISTING DATABASE SCHEMA:
 {schemaContext}
 
-Generate comprehensive INSERT statements with detailed comments explaining the workflow logic.";
+Generate comprehensive INSERT statements with detailed comments explaining the AI-driven workflow logic.
+Each INSERT should reference the AI analysis that led to its creation.";
         }
 
         private string GetCurrentModelId()

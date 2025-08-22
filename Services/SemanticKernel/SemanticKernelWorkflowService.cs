@@ -110,14 +110,15 @@ namespace WorkflowCreator.Services
                 - Use title case (e.g., "Purchase Order Approval")
                 - Should be suitable for a business system
                 - Focus on the main business process
-                - Avoid generic terms like "Process" or "System"
+                - The workflow name may be based upon a statuatory form and might be an acronym.
+                - The Description may include the user's preferred name for the workflow.  Use the suggested name if provided.
                 
                 Examples:
-                - "Employee Onboarding"
-                - "Purchase Order Approval" 
-                - "Expense Report Review"
-                - "Customer Support Ticket"
-                - "Invoice Processing"
+                - "SE"
+                - "Topic 5V" 
+                - "Enquiry"
+                - "Extension Request"
+                - "SESOR"
                 
                 Description: {{$description}}
                 
@@ -149,20 +150,22 @@ namespace WorkflowCreator.Services
             var function = _analysisKernel.CreateFunctionFromPrompt(
                 promptTemplate: """
                 You are an expert business analyst specializing in workflow design.
-                Analyze the workflow description and extract the sequential steps.
+                Analyze the workflow description and extract the sequential steps. 
+                
                 
                 For each step, identify:
                 1. Order - Sequential step number (starting from 1)
                 2. Title - Concise step name (3-6 words)
                 3. Description - What happens in this step (1-2 sentences)
                 4. AssignedRole - Who performs this step (if mentioned or can be inferred)
-                5. PossibleOutcomes - What decisions/actions can result from this step
+                5. PossibleOutcomes - What decisions/actions can result from this step. PossibleOutcomes should be in the past tense.
                 
                 Important guidelines:
                 - Focus on the main workflow steps, not sub-tasks
                 - Include decision points and approval steps
                 - Consider parallel processes as separate steps
                 - Think about error/rejection paths
+                - If the user has provided step names, please use these without changing the names.
                 
                 Return ONLY valid JSON in this exact format:
                 {
@@ -172,14 +175,14 @@ namespace WorkflowCreator.Services
                       "title": "Submit Request",
                       "description": "Employee submits the initial request with required documentation.",
                       "assignedRole": "Employee",
-                      "possibleOutcomes": ["Submitted", "Draft Saved", "Validation Error"]
+                      "possibleOutcomes": ["Submit for Approval", "Withdrawn"]
                     },
                     {
                       "order": 2,
                       "title": "Manager Review",
                       "description": "Direct manager reviews the request for approval or rejection.",
                       "assignedRole": "Manager", 
-                      "possibleOutcomes": ["Approved", "Rejected", "Request More Info"]
+                      "possibleOutcomes": ["Approve", "Reject", "Submit for Review"]
                     }
                   ]
                 }
@@ -210,55 +213,97 @@ namespace WorkflowCreator.Services
             var existingStatuses = GetExistingStatuses();
             var existingStatusText = string.Join("\n", existingStatuses.Select(s => $"- {s.Name} (ID: {s.ExistingId}) - {s.Description}"));
 
-            var stepsText = steps != null && steps.Any()
-                ? string.Join("\n", steps.Select(s => $"{s.Order}. {s.Title}: {s.Description}"))
-                : "No structured steps available";
+            var stepsText = string.Empty;
+            if (steps != null && steps.Any())
+            {
+                foreach (var step in steps)
+                {
+                    var stepHeading = $"Step {step.Order}. {step.Title}: {step.Description} ";
 
-            var function = _analysisKernel.CreateFunctionFromPrompt(
-                promptTemplate: """
-                You are a workflow system analyst. Analyze the workflow and determine what statuses are needed.
+                    var outcomeText = string.Empty;
 
-                EXISTING STATUSES in the PAWS system:
-                {{$existingStatuses}}
+                    if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
+                    {
+                        outcomeText = $"Possible outcomes include: ";
+
+                        outcomeText += string.Join(
+                            ", ",
+                            step.PossibleOutcomes.Select(o => $"\"{o}\""));
+                        outcomeText += "\n";
+                    }
+
+                    stepsText += stepHeading + outcomeText;
+                }
+            }
+            else
+            {
+                stepsText = "No structured steps available";
+            }
+                //var stepsText = steps != null && steps.Any()
+                //    ? string.Join(
+                //        "\n",
+                //        steps.Select(s => $"Step {s.Order}. {s.Title}: {s.Description}"))
+                //    : "No structured steps available";
+
+            var prompt = $"""
+                You are a workflow system analyst. Analyze the workflow and determine what TRIGGER STATUSES (user action choices) are needed.
+
+                IMPORTANT: Trigger statuses are the ACTION CHOICES available to users at each workflow step, NOT the step names themselves.
+
+                EXISTING TRIGGER STATUSES in the PAWS system:
+                {existingStatusText}
 
                 WORKFLOW DESCRIPTION: 
-                {{$description}}
-                
-                ANALYZED STEPS:
-                {{$steps}}
+                {description}
 
+                ANALYZED STEPS (in order and with their title and description) and their POSSIBLE OUTCOMES 
+                {stepsText}
+
+
+                """;
+
+            prompt += """
                 Your task:
-                1. Identify all status transitions mentioned in the workflow
-                2. Map them to existing statuses where possible (use exact matches or close equivalents)
-                3. Identify any new statuses that need to be created
-                4. Consider the workflow steps and their possible outcomes
+                1. For each workflow step, identify what ACTION CHOICES (trigger statuses) the user can select based upon the POSSIBLE OTCOMES
+                2. Map these action choices to existing trigger statuses where possible
+                3. Identify any new trigger statuses that need to be created
+                4. DO NOT include workflow step names (like "Draft", "Open", "Closed") as trigger statuses
 
                 Guidelines:
-                - Prefer existing statuses when they match the workflow needs
-                - Only suggest new statuses when existing ones don't fit
-                - Consider status transitions: what triggers moving from one status to another
-                - Think about error states and rejection paths
+                - Trigger statuses are VERBS or ACTION PHRASES (e.g., "Submit for Approval", "Reject", "Approve")
+                - Step names are NOUNS or STATES (e.g., "Draft", "Open", "Closed") - DO NOT include these
+                - Focus on what the USER DOES, not where the workflow goes
+                - Use the exact trigger status names provided in the workflow description
+                - Consider approval paths, rejection paths, and termination actions
+                - Each trigger status represents a business decision or action
+
+                Example: If the description says 'From "Draft" step user could choose "Submit for Approval"', then "Submit for Approval" is a trigger status, but "Draft" is NOT.
 
                 Return ONLY valid JSON in this format:
                 {
                   "requiredStatuses": [
                     {
-                      "name": "Submitted for Approval",
-                      "description": "Request has been submitted and is waiting for manager review",
+                      "name": "Submit for Approval",
+                      "description": "User action to submit the item for manager review",
                       "isExisting": true,
-                      "existingId": 2
+                      "existingId": 2,
+                      "stepContext": "Available from Draft step"
                     },
                     {
-                      "name": "Pending HR Review", 
-                      "description": "Request approved by manager, now needs HR verification",
+                      "name": "Withdraw", 
+                      "description": "User action to withdraw and terminate the process",
                       "isExisting": false,
-                      "existingId": null
+                      "existingId": null,
+                      "stepContext": "Available from Draft step"
                     }
                   ]
                 }
 
                 JSON Response:
-                """,
+                """;
+
+            var function = _analysisKernel.CreateFunctionFromPrompt(
+                promptTemplate: prompt,
                 functionName: "DetermineRequiredStatuses",
                 description: "Determines required workflow statuses and maps to existing ones"
             );
@@ -482,9 +527,9 @@ namespace WorkflowCreator.Services
             return new List<WorkflowStatus>
             {
                 new() { Name = "Pending", ExistingId = 1, IsExisting = true, Description = "Initial state, waiting for action" },
-                new() { Name = "Submitted for Approval", ExistingId = 2, IsExisting = true, Description = "Request submitted and waiting for approval" },
-                new() { Name = "Approved", ExistingId = 3, IsExisting = true, Description = "Request has been approved" },
-                new() { Name = "Rejected", ExistingId = 7, IsExisting = true, Description = "Request has been rejected" },
+                new() { Name = "Submit for Approval", ExistingId = 2, IsExisting = true, Description = "Request submitted and waiting for approval" },
+                new() { Name = "Approve", ExistingId = 3, IsExisting = true, Description = "Request has been approved" },
+                new() { Name = "Reject", ExistingId = 7, IsExisting = true, Description = "Request has been rejected" },
                 new() { Name = "Submit Draft", ExistingId = 17, IsExisting = true, Description = "Save as draft for later submission" },
                 new() { Name = "Submit for Review", ExistingId = 18, IsExisting = true, Description = "Submit for initial review" },
                 new() { Name = "Review and Close", ExistingId = 19, IsExisting = true, Description = "Final review and close the process" }
