@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Threading;
 using WorkflowCreator.Services;
 using WorkflowCreator.Services.Interfaces;
 
@@ -12,7 +13,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add core MVC services
 builder.Services.AddControllersWithViews();
+
+builder.Services.ConfigureHttpClientDefaults(builder =>
+{
+    builder.ConfigureHttpClient(client =>
+    {
+        client.Timeout = TimeSpan.FromMinutes(15);
+    });
+}); 
+
 builder.Services.AddHttpClient();
+
 builder.Services.AddMemoryCache();
 
 // Add health checks for monitoring
@@ -100,7 +111,7 @@ builder.Services.AddKeyedSingleton<Kernel>("sql", (serviceProvider, key) =>
         logger.LogError(ex, "Failed to configure SQL Generation Kernel");
         throw; // SQL kernel is critical, don't continue without it
     }
-
+    
     kernelBuilder.Services.AddLogging();
 
     var kernel = kernelBuilder.Build();
