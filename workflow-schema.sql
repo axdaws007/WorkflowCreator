@@ -44,28 +44,6 @@ CREATE TABLE [paws].[PAWSActivityStatus](
 	[title] [nvarchar](100) NOT NULL
 );
 
--- Standard activity statuses (reference data - usually already exists)
--- INSERT [paws].[PAWSActivityStatus] ([ActivityStatusID], [title]) VALUES 
--- (1, N'Pending')
--- (2, N'Submitted for Approval')
--- (3, N'Approved')
--- (4, N'Repaired')
--- (5, N'Withdrawn')
--- (6, N'Not Repaired')
--- (7, N'Rejected')
--- (8, N'Damage Changed')
--- (9, N'Repair Changed')
--- (10, N'Repaired via Other Repair')
--- (11, N'Repair Logged')
--- (12, N'ADF')
--- (13, N'Damage Logged')
--- (14, N'Damage Concessed')
--- (15, N'Damage Repair Decision changed')
--- (16, N'Repair Required')
--- (17, N'Submit Draft')
--- (18, N'Submit for Review')
--- (19, N'Review and Close')
-
 -- ================================================
 -- WORKFLOW TRANSITIONS (FLOW LOGIC)
 -- ================================================

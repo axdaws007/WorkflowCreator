@@ -35,16 +35,6 @@ namespace WorkflowCreator.Services
                     
                     {{$userPrompt}}
                     
-                    Generate comprehensive SQL INSERT statements following the system requirements.
-                    
-                    Requirements:
-                    - Return ONLY valid SQL code with comments
-                    - Use proper SQL Server syntax
-                    - Include detailed comments explaining each section
-                    - Follow the specified INSERT order and foreign key constraints
-                    - Use NEWID() for uniqueidentifier columns
-                    - Ensure all data is realistic and appropriate
-                    
                     SQL Response:
                     """,
                     functionName: "GenerateWorkflowSql",
@@ -292,7 +282,7 @@ namespace WorkflowCreator.Services
         private string BuildEnhancedPrompt(WorkflowAnalysisResult analysisResult, string schemaContext)
         {
             var prompt = new StringBuilder();
-            prompt.AppendLine("Generate SQL INSERT statements for this AI-analyzed workflow:");
+            prompt.AppendLine("Generate SQL INSERT statements for this workflow:");
             prompt.AppendLine();
             prompt.AppendLine($"WORKFLOW NAME: {analysisResult.WorkflowName}");
             prompt.AppendLine();
@@ -314,13 +304,13 @@ namespace WorkflowCreator.Services
 
             if (analysisResult.RequiredStatuses != null && analysisResult.RequiredStatuses.Any())
             {
-                prompt.AppendLine("STATUS MAPPING:");
+                prompt.AppendLine("REQUIRED STATUSES:");
                 var existingStatuses = analysisResult.RequiredStatuses.Where(s => s.IsExisting).ToList();
                 var newStatuses = analysisResult.RequiredStatuses.Where(s => !s.IsExisting).ToList();
 
                 if (existingStatuses.Any())
                 {
-                    prompt.AppendLine("Use these existing status IDs:");
+                    prompt.AppendLine("These are pre-existing statuses which you do not need generate INSERT statements for but the IDs will be used in the transitions:");
                     foreach (var status in existingStatuses)
                     {
                         prompt.AppendLine($"- {status.Name} (ID: {status.ExistingId})");
@@ -329,7 +319,7 @@ namespace WorkflowCreator.Services
 
                 if (newStatuses.Any())
                 {
-                    prompt.AppendLine("New statuses needed:");
+                    prompt.AppendLine("These are new statuses that required INSERT statements in the PAWSActivityStatus table.  The IDs will also be used in the activity transitions:");
                     foreach (var status in newStatuses)
                     {
                         prompt.AppendLine($"- {status.Name}: {status.Description}");
@@ -338,40 +328,94 @@ namespace WorkflowCreator.Services
             }
 
             prompt.AppendLine();
-            prompt.AppendLine("Generate SQL including:");
-            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the workflow name");
-            prompt.AppendLine("2. INSERT statements for PAWSActivity based on the workflow steps");
-            prompt.AppendLine("3. INSERT statements for PAWSActivityStatus for any new workflow statuses. Include comments for any new statuses.");
-            prompt.AppendLine("4. INSERT statements for PAWSActivityTransition based on the workflow steps and their outcomes");
-            prompt.AppendLine("5. Comments explaining how AI analysis drove each SQL statement");
+            prompt.AppendLine("SPECIAL REQUIREMENTS:");
+            prompt.AppendLine("1. Create the initial NULL->Step1 transition with TriggerStatusID=1");
+            prompt.AppendLine("2. Define all forward paths with TransitionType=1");
+            prompt.AppendLine("3. Define any rejection/rework paths with TransitionType=2");
+            prompt.AppendLine("4. Mark terminal transitions with DestinationActivityID=NULL");
+            prompt.AppendLine("5. Use a single GUID variable for processTemplateID consistency");
+            prompt.AppendLine();
+            prompt.AppendLine("Generate complete SQL following all rules. Start with DECLARE @processId uniqueidentifier = NEWID();");
 
             return prompt.ToString();
         }
 
         private string BuildEnhancedSystemPrompt(string schemaContext)
         {
-            return $@"You are an expert SQL developer working with the PAWS workflow management system.
-Your task is to generate ONLY SQL INSERT statements based on detailed AI-analyzed workflow information.
+            return $@"You are a SQL code generator for the PAWS workflow management system. Your task is to generate ONLY valid SQL INSERT statements that populate the workflow tables. You must follow strict rules to maintain data integrity and foreign key constraints.
 
-You will receive:
-1. AI-extracted workflow name
-2. AI-analyzed workflow steps with roles and outcomes  
-3. AI-determined required statuses (existing and new)
+CRITICAL REQUIREMENTS:
+1. Generate ONLY SQL INSERT statements - no explanations, no DDL, no other text
+2. Use SQL Server T-SQL syntax exclusively
+3. Include SQL comments (--) to document each section
+4. Follow the EXACT table insertion order to respect foreign key constraints
+5. Every workflow MUST start with a NULL source transition
 
-CRITICAL RULES:
-1. Generate ONLY INSERT statements, no DDL
-2. Follow INSERT order: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition
-3. Use NEWID() for uniqueidentifier columns
-4. Number activities sequentially starting from 1
-5. Create logical transitions based on AI-analyzed step outcomes
-6. Use existing status IDs where provided
-7. Add comments for any new statuses that need manual creation
+DATABASE SCHEMA OVERVIEW:
+- PAWSProcessTemplate: Master workflow definition (uses uniqueidentifier)
+- PAWSActivity: Individual workflow steps (uses sequential integers starting from 1)
+- PAWSActivityStatus: Predefined trigger statuses (reference table with fixed IDs)
+- PAWSActivityTransition: Defines flow between activities (the workflow logic)
 
-EXISTING DATABASE SCHEMA:
+DATABASE SCHEMA:
 {schemaContext}
 
-Generate comprehensive INSERT statements with detailed comments explaining the AI-driven workflow logic.
-Each INSERT should reference the AI analysis that led to its creation.";
+INSERTION ORDER (MANDATORY):
+1. PAWSProcessTemplate (one row per workflow)
+2. PAWSActivity (one row per step)
+3. PAWSActivityTransition (multiple rows defining the flow)
+
+PAWSProcessTemplate RULES:
+- processTemplateID: Always use NEWID()
+- title: Workflow name (max 100 chars)
+- IsArchived: Always 0 for new workflows
+- ProcessSeed: Default 0
+- ReassignEnabled: Default 0
+- ReassignCapabilityID: Default NULL
+
+PAWSActivity RULES:
+- activityID: Sequential integers starting from 1
+- title: Step name (max 100 chars)
+- description: Step description (max 500 chars)
+- processTemplateID: Must match the NEWID() from PAWSProcessTemplate
+- DefaultOwnerRoleID: NULL or valid GUID
+- IsRemoved: Always 0 for active steps
+- SignoffText: NULL unless approval required
+- ShowSignoffText: 0 unless displaying approval text
+- RequirePassword: 0 unless password required
+
+PAWSActivityTransition RULES (CRITICAL):
+- FIRST ROW RULE: Every workflow MUST have an initial transition with:
+  * SourceActivityID = NULL (workflow entry point)
+  * DestinationActivityID = 1 (first step)
+  * TriggerStatusID = 1 (Pending status)
+  * TransitionType = 1 (forward)
+- TERMINATION RULE: Final steps have DestinationActivityID = NULL
+- FORWARD TRANSITIONS: TransitionType = 1 (moving to next step)
+- BACKWARD TRANSITIONS: TransitionType = 2 (rejection/rework scenarios)
+- Operator: Default 0
+- IsCommentRequired: 0 or 1 based on business needs
+- DestinationOwnerRequired: Default 0
+
+STANDARD STATUS IDs (PAWSActivityStatus):
+1 = Pending (ALWAYS used for workflow start)
+2 = Submitted for Approval
+3 = Approve
+7 = Reject
+17 = Submit Draft
+18 = Submit for Review
+19 = Review and Close
+
+WORKFLOW PATTERNS:
+- Linear: Step1 -> Step2 -> Step3 -> End
+- Approval: Step -> (Approved->Next) OR (Rejected->Previous)
+- Multi-level: Each level can approve forward or reject backward
+
+OUTPUT FORMAT:
+-- Always start with a header comment
+-- Group INSERTs by table
+-- Use consistent formatting
+-- Include inline comments for complex transitions";
         }
 
         private string GetCurrentModelId()
