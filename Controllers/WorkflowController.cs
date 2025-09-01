@@ -512,10 +512,6 @@ namespace WorkflowCreator.Controllers
                 {
                     prompt.AppendLine($"{step.Order}. {step.Title}");
                     prompt.AppendLine($"   Description: {step.Description}");
-                    if (!string.IsNullOrEmpty(step.AssignedRole))
-                        prompt.AppendLine($"   Role: {step.AssignedRole}");
-                    if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
-                        prompt.AppendLine($"   Possible Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
                     prompt.AppendLine();
                 }
             }

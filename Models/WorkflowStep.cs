@@ -26,20 +26,6 @@ namespace WorkflowCreator.Models
         public string Description { get; set; } = "";
 
         /// <summary>
-        /// Role or person responsible for performing this step.
-        /// May be null if not specified or inferred from the workflow description.
-        /// Examples: "Manager", "Employee", "HR Department"
-        /// </summary>
-        public string? AssignedRole { get; set; }
-
-        /// <summary>
-        /// Possible outcomes or decisions that can result from this step.
-        /// Used to determine workflow transitions and status changes.
-        /// Examples: ["Approved", "Rejected", "Request More Info"]
-        /// </summary>
-        public List<string>? PossibleOutcomes { get; set; }
-
-        /// <summary>
         /// Estimated duration for this step (if provided in description).
         /// Not always available from AI analysis.
         /// </summary>
@@ -62,18 +48,6 @@ namespace WorkflowCreator.Models
         /// May include confidence scores, alternative interpretations, etc.
         /// </summary>
         public Dictionary<string, object>? Metadata { get; set; }
-
-        /// <summary>
-        /// Gets whether this step has decision points (multiple possible outcomes).
-        /// </summary>
-        [JsonIgnore]
-        public bool IsDecisionPoint => PossibleOutcomes != null && PossibleOutcomes.Count > 1;
-
-        /// <summary>
-        /// Gets whether this step has an assigned role.
-        /// </summary>
-        [JsonIgnore]
-        public bool HasAssignedRole => !string.IsNullOrWhiteSpace(AssignedRole);
 
         /// <summary>
         /// Validates the workflow step data.
@@ -108,10 +82,6 @@ namespace WorkflowCreator.Models
         public override string ToString()
         {
             var summary = $"{Order}. {Title}";
-            if (HasAssignedRole)
-                summary += $" ({AssignedRole})";
-            if (IsDecisionPoint)
-                summary += $" - {PossibleOutcomes!.Count} outcomes";
             return summary;
         }
     }

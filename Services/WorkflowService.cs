@@ -322,10 +322,6 @@ Generate comprehensive INSERT statements with detailed comments.";
                 foreach (var step in analysisResult.Steps.OrderBy(s => s.Order))
                 {
                     prompt.AppendLine($"{step.Order}. {step.Title} - {step.Description}");
-                    if (!string.IsNullOrEmpty(step.AssignedRole))
-                        prompt.AppendLine($"   Role: {step.AssignedRole}");
-                    if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
-                        prompt.AppendLine($"   Outcomes: {string.Join(", ", step.PossibleOutcomes)}");
                 }
                 prompt.AppendLine();
             }

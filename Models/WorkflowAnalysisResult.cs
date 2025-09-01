@@ -33,6 +33,11 @@ namespace WorkflowCreator.Models
         public List<WorkflowStep>? Steps { get; set; }
 
         /// <summary>
+        /// Structured list of workflow transitions extracted and analyzed by AI.
+        /// </summary>
+        public List<WorkflowTransition>? FlowTransitions { get; set; }
+
+        /// <summary>
         /// Statuses that are required for this workflow but don't exist in the system.
         /// These need to be manually added to the PAWSActivityStatus table.
         /// </summary>

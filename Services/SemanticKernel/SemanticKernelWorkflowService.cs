@@ -49,12 +49,12 @@ namespace WorkflowCreator.Services
 
                 // Step 2: Analyze workflow steps
                 _logger.LogDebug("Phase 2: Analyzing workflow steps");
-                var steps = await AnalyzeWorkflowStepsAsync(description);
-                result.Steps = steps;
+                var workflowResponse = await AnalyzeWorkflowStepsAsync(description);
+                result.Steps = workflowResponse.Steps;
 
                 // Step 3: Determine required statuses
                 _logger.LogDebug("Phase 3: Determining required statuses");
-                var statusAnalysis = await DetermineRequiredStatusesAsync(description, steps);
+                var statusAnalysis = await DetermineRequiredStatusesAsync(description, workflowResponse.Steps);
                 result.RequiredStatuses = statusAnalysis.RequiredStatuses;
                 result.ExistingStatuses = statusAnalysis.ExistingStatuses;
 
@@ -64,7 +64,7 @@ namespace WorkflowCreator.Services
                 result.AnalysisMetadata = new Dictionary<string, object>
                 {
                     ["AnalysisTimeMs"] = stopwatch.ElapsedMilliseconds,
-                    ["StepsFound"] = steps?.Count ?? 0,
+                    ["StepsFound"] = workflowResponse.Steps?.Count ?? 0,
                     ["StatusesRequired"] = statusAnalysis.RequiredStatuses?.Count ?? 0,
                     ["NewStatusesNeeded"] = statusAnalysis.RequiredStatuses?.Count(s => !s.IsExisting) ?? 0,
                     ["CachedResult"] = false,
@@ -75,7 +75,7 @@ namespace WorkflowCreator.Services
                 _cache.Set(cacheKey, result, TimeSpan.FromHours(1));
 
                 _logger.LogInformation("Workflow analysis completed successfully in {ms}ms. Found {steps} steps and {statuses} required statuses",
-                    stopwatch.ElapsedMilliseconds, steps?.Count ?? 0, statusAnalysis.RequiredStatuses?.Count ?? 0);
+                    stopwatch.ElapsedMilliseconds, workflowResponse.Steps?.Count ?? 0, statusAnalysis.RequiredStatuses?.Count ?? 0);
 
                 return result;
             }
@@ -145,50 +145,88 @@ namespace WorkflowCreator.Services
             return workflowName;
         }
 
-        private async Task<List<WorkflowStep>?> AnalyzeWorkflowStepsAsync(string description)
+        private async Task<(List<WorkflowStep>? Steps, List<WorkflowTransition>? Transitions)> AnalyzeWorkflowStepsAsync(string description)
         {
             var function = _analysisKernel.CreateFunctionFromPrompt(
                 promptTemplate: """
-                You are an expert business analyst specializing in workflow design.
-                Analyze the workflow description and extract the sequential steps. 
-                
-                
-                For each step, identify:
-                1. Order - Sequential step number (starting from 1)
-                2. Title - Concise step name (3-6 words)
-                3. Description - What happens in this step (1-2 sentences)
-                4. AssignedRole - Who performs this step (if mentioned or can be inferred)
-                5. PossibleOutcomes - What decisions/actions can result from this step. PossibleOutcomes should be in the past tense.
-                
-                Important guidelines:
-                - Focus on the main workflow steps, not sub-tasks
-                - Include decision points and approval steps
-                - Consider parallel processes as separate steps
-                - Think about error/rejection paths
-                - If the user has provided step names, please use these without changing the names.
-                
+                You are an expert business workflow analyst specializing in process flow design.
+                Analyze the workflow description and extract both the sequential steps AND the complete flow logic.
+
+                Your task is to identify:
+                1. **Workflow Steps** - Sequential process phases (states/stages)
+                2. **Flow Transitions** - How steps connect via trigger statuses (user actions)
+
+                For each step, determine:
+                - Order: Sequential step number (starting from 1)
+                - Title: Concise step name (3-6 words)
+                - Description: What happens in this step (1-2 sentences)
+                - AssignedRole: Who performs this step (if mentioned or can be inferred)
+
+                For the flow logic, identify ALL transitions in this format:
+                - SourceStep: The step where the action originates (or NULL for workflow start)
+                - TriggerStatus: The user action/decision that causes the transition
+                - DestinationStep: The step that results from the action (or NULL for workflow termination)
+                - IsProgressive: true if moving forward in the process, false if moving backward
+
+                CRITICAL RULES:
+                - Always include the initial transition: NULL → "Pending" → FirstStep → true
+                - Trigger statuses are USER ACTIONS (verbs like "Submit", "Approve", "Reject")
+                - Step names are STATES (nouns like "Draft", "Open", "Closed")
+                - Terminating actions have DestinationStep = NULL
+                - Rejection/rework paths are IsProgressive = false
+                - Approval/forward paths are IsProgressive = true
+                - Use the exact step names and trigger status names from the description
+
                 Return ONLY valid JSON in this exact format:
                 {
                   "steps": [
                     {
                       "order": 1,
-                      "title": "Submit Request",
-                      "description": "Employee submits the initial request with required documentation.",
-                      "assignedRole": "Employee",
-                      "possibleOutcomes": ["Submit for Approval", "Withdrawn"]
+                      "title": "Draft",
+                      "description": "Initial creation phase where the request is prepared."
                     },
                     {
                       "order": 2,
-                      "title": "Manager Review",
-                      "description": "Direct manager reviews the request for approval or rejection.",
-                      "assignedRole": "Manager", 
-                      "possibleOutcomes": ["Approve", "Reject", "Submit for Review"]
+                      "title": "Open", 
+                      "description": "Under review by the appropriate approver."
+                    }
+                  ],
+                  "flowTransitions": [
+                    {
+                      "sourceStep": null,
+                      "triggerStatus": "Pending",
+                      "destinationStep": "Draft",
+                      "isProgressive": true
+                    },
+                    {
+                      "sourceStep": "Draft",
+                      "triggerStatus": "Submit for Approval", 
+                      "destinationStep": "Open",
+                      "isProgressive": true
+                    },
+                    {
+                      "sourceStep": "Draft",
+                      "triggerStatus": "Withdraw",
+                      "destinationStep": null,
+                      "isProgressive": true
+                    },
+                    {
+                      "sourceStep": "Open",
+                      "triggerStatus": "Approve",
+                      "destinationStep": "Closed", 
+                      "isProgressive": true
+                    },
+                    {
+                      "sourceStep": "Open",
+                      "triggerStatus": "Reject",
+                      "destinationStep": "Draft",
+                      "isProgressive": false
                     }
                   ]
                 }
-                
+
                 Workflow Description: {{$description}}
-                
+
                 JSON Response:
                 """,
                 functionName: "AnalyzeWorkflowSteps",
@@ -201,10 +239,11 @@ namespace WorkflowCreator.Services
             });
 
             var jsonResponse = result.GetValue<string>();
-            var steps = ParseStepsFromJson(jsonResponse);
+            var workflowResponse = ParseStepsAndTransitionsFromJson(jsonResponse);
 
-            _logger.LogDebug("Analyzed {count} workflow steps", steps?.Count ?? 0);
-            return steps;
+            _logger.LogDebug("Analyzed {count} workflow steps", workflowResponse.Steps?.Count ?? 0);
+
+            return workflowResponse;
         }
 
         private async Task<(List<WorkflowStatus>? RequiredStatuses, List<WorkflowStatus>? ExistingStatuses)>
@@ -221,16 +260,6 @@ namespace WorkflowCreator.Services
                     var stepHeading = $"Step {step.Order}. {step.Title}: {step.Description} ";
 
                     var outcomeText = string.Empty;
-
-                    if (step.PossibleOutcomes != null && step.PossibleOutcomes.Any())
-                    {
-                        outcomeText = $"Possible outcomes include: ";
-
-                        outcomeText += string.Join(
-                            ", ",
-                            step.PossibleOutcomes.Select(o => $"\"{o}\""));
-                        outcomeText += "\n";
-                    }
 
                     stepsText += stepHeading + outcomeText;
                 }
@@ -393,9 +422,11 @@ namespace WorkflowCreator.Services
             return name.Length > 50 ? name.Substring(0, 47) + "..." : name;
         }
 
-        private List<WorkflowStep>? ParseStepsFromJson(string? json)
+
+        private (List<WorkflowStep>? Steps, List<WorkflowTransition>? FlowTransitions) ParseStepsAndTransitionsFromJson(string? json)
         {
-            if (string.IsNullOrEmpty(json)) return null;
+            if (string.IsNullOrEmpty(json))
+                return (null, null);
 
             try
             {
@@ -409,9 +440,11 @@ namespace WorkflowCreator.Services
 
                 var parsed = JsonSerializer.Deserialize<JsonElement>(cleanJson, options);
 
+                // Parse workflow steps
+                List<WorkflowStep>? steps = null;
                 if (parsed.TryGetProperty("steps", out var stepsElement))
                 {
-                    var steps = new List<WorkflowStep>();
+                    steps = new List<WorkflowStep>();
 
                     foreach (var stepElement in stepsElement.EnumerateArray())
                     {
@@ -419,30 +452,50 @@ namespace WorkflowCreator.Services
                         {
                             Order = stepElement.TryGetProperty("order", out var orderProp) ? orderProp.GetInt32() : 0,
                             Title = stepElement.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? "" : "",
-                            Description = stepElement.TryGetProperty("description", out var descProp) ? descProp.GetString() ?? "" : "",
-                            AssignedRole = stepElement.TryGetProperty("assignedRole", out var roleProp) ? roleProp.GetString() : null
+                            Description = stepElement.TryGetProperty("description", out var descProp) ? descProp.GetString() ?? "" : ""
                         };
-
-                        if (stepElement.TryGetProperty("possibleOutcomes", out var outcomesProp))
-                        {
-                            step.PossibleOutcomes = outcomesProp.EnumerateArray()
-                                .Select(outcome => outcome.GetString() ?? "")
-                                .Where(s => !string.IsNullOrEmpty(s))
-                                .ToList();
-                        }
 
                         steps.Add(step);
                     }
 
-                    return steps.OrderBy(s => s.Order).ToList();
+                    steps = steps.OrderBy(s => s.Order).ToList();
                 }
+
+                // Parse flow transitions
+                List<WorkflowTransition>? transitions = null;
+                if (parsed.TryGetProperty("flowTransitions", out var transitionsElement))
+                {
+                    transitions = new List<WorkflowTransition>();
+
+                    foreach (var transitionElement in transitionsElement.EnumerateArray())
+                    {
+                        var transition = new WorkflowTransition
+                        {
+                            SourceStep = transitionElement.TryGetProperty("sourceStep", out var sourceProp) && sourceProp.ValueKind != JsonValueKind.Null
+                                ? sourceProp.GetString() : null,
+                            TriggerStatus = transitionElement.TryGetProperty("triggerStatus", out var triggerProp)
+                                ? triggerProp.GetString() ?? "" : "",
+                            DestinationStep = transitionElement.TryGetProperty("destinationStep", out var destProp) && destProp.ValueKind != JsonValueKind.Null
+                                ? destProp.GetString() : null,
+                            IsProgressive = transitionElement.TryGetProperty("isProgressive", out var progressiveProp)
+                                && progressiveProp.GetBoolean()
+                        };
+
+                        transitions.Add(transition);
+                    }
+                }
+
+                _logger.LogDebug("Parsed {stepCount} steps and {transitionCount} transitions",
+                    steps?.Count ?? 0, transitions?.Count ?? 0);
+
+                return (steps, transitions);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to parse steps JSON: {json}", json?.Substring(0, Math.Min(200, json.Length)));
+                _logger.LogError(ex, "Failed to parse enhanced workflow JSON: {json}",
+                    json?.Substring(0, Math.Min(200, json.Length)));
+                return (null, null);
             }
-
-            return null;
         }
 
         private (List<WorkflowStatus>? RequiredStatuses, List<WorkflowStatus>? ExistingStatuses) ParseStatusAnalysis(string? json)
