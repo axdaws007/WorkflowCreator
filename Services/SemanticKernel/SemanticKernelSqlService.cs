@@ -1,5 +1,4 @@
 ﻿using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 using System.Text;
 using WorkflowCreator.Models;
 
@@ -28,6 +27,8 @@ namespace WorkflowCreator.Services
             try
             {
                 _logger.LogInformation("Starting SQL generation using Semantic Kernel");
+                _logger.LogInformation($"System prompt: {systemPrompt}");
+                _logger.LogInformation($"User prompt: {userPrompt}");
 
                 var sqlFunction = _sqlKernel.CreateFunctionFromPrompt(
                     promptTemplate: """
@@ -327,15 +328,62 @@ namespace WorkflowCreator.Services
                 }
             }
 
-            prompt.AppendLine();
-            prompt.AppendLine("SPECIAL REQUIREMENTS:");
-            prompt.AppendLine("1. Create the initial NULL->Step1 transition with TriggerStatusID=1");
-            prompt.AppendLine("2. Define all forward paths with TransitionType=1");
-            prompt.AppendLine("3. Define any rejection/rework paths with TransitionType=2");
-            prompt.AppendLine("4. Mark terminal transitions with DestinationActivityID=NULL");
-            prompt.AppendLine("5. Use a single GUID variable for processTemplateID consistency");
-            prompt.AppendLine();
-            prompt.AppendLine("Generate complete SQL following all rules. Start with DECLARE @processId uniqueidentifier = NEWID();");
+            prompt.Append("""
+                SPECIAL REQUIREMENTS:
+
+                Insert activities with auto-generated IDs using SELECT MAX
+                Use SELECT subqueries to lookup activity IDs by title and processTemplateID
+                Create the initial NULL→(SELECT first activity) transition with TriggerStatusID=1
+                Reference activities by SELECT queries (not hard-coded numbers!)
+                Define all forward paths with TransitionType=1
+                Define any rejection/rework paths with TransitionType=2
+                Mark terminal transitions with DestinationActivityID=NULL
+                Use @processId variable for all processTemplateID references
+
+                CRITICAL: Use SELECT subqueries like:
+                (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'ActivityTitle')
+                This ensures transitions always reference the correct activity IDs!
+                Generate complete SQL following all rules. Start with DECLARE @processId uniqueidentifier = NEWID();
+
+                ## CRITICAL ID MATCHING RULES
+
+                **THE KEY SOLUTION**: Use SELECT subqueries to lookup activity IDs by title and processTemplateID
+
+                ### BEST PRACTICE - Using SELECT Subqueries:
+
+                For example:
+
+                -- Insert activities first (with auto-generated IDs)
+                INSERT INTO PAWSActivity (activityID, title, processTemplateID, ...) VALUES 
+                (ISNULL((SELECT MAX(activityID) FROM PAWSActivity), 0) + 1, 'Draft', @processId, ...);
+
+                INSERT INTO PAWSActivity (activityID, title, processTemplateID, ...) VALUES 
+                (ISNULL((SELECT MAX(activityID) FROM PAWSActivity), 0) + 1, 'Open', @processId, ...);
+
+                -- Then lookup IDs in transitions using SELECT
+                INSERT INTO PAWSActivityTransition (SourceActivityID, DestinationActivityID, ...) VALUES
+                -- Start → Draft (lookup Draft's ID)
+                (NULL, 
+                 (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Draft'),
+                 1, ...),
+
+                -- Draft → Open (lookup both IDs)
+                ((SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Draft'),
+                 (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Open'),
+                 ...),
+
+                -- Open → End
+                ((SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Open'),
+                 NULL,
+                 ...);
+
+
+                WRONG Pattern (DO NOT DO THIS):
+
+                -- DON'T use hard-coded numbers
+                INSERT INTO PAWSActivityTransition VALUES (NULL, 1, ...);  -- WRONG!
+                INSERT INTO PAWSActivityTransition VALUES (1, 2, ...);     -- WRONG!
+                """);
 
             return prompt.ToString();
         }
@@ -374,10 +422,10 @@ PAWSProcessTemplate RULES:
 - ReassignCapabilityID: Default NULL
 
 PAWSActivity RULES:
-- activityID: Sequential integers starting from 1
+- activityID: Auto-generated sequential integers (use ISNULL((SELECT MAX(activityID) FROM PAWSActivity), 0) + 1)
 - title: Step name (max 100 chars)
 - description: Step description (max 500 chars)
-- processTemplateID: Must match the NEWID() from PAWSProcessTemplate
+- processTemplateID: Must match the @processId variable
 - DefaultOwnerRoleID: NULL or valid GUID
 - IsRemoved: Always 0 for active steps
 - SignoffText: NULL unless approval required
@@ -387,9 +435,10 @@ PAWSActivity RULES:
 PAWSActivityTransition RULES (CRITICAL):
 - FIRST ROW RULE: Every workflow MUST have an initial transition with:
   * SourceActivityID = NULL (workflow entry point)
-  * DestinationActivityID = 1 (first step)
+  * DestinationActivityID = (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'FirstStepTitle')
   * TriggerStatusID = 1 (Pending status)
   * TransitionType = 1 (forward)
+- USE SUBQUERIES: Reference activities by SELECT subqueries
 - TERMINATION RULE: Final steps have DestinationActivityID = NULL
 - FORWARD TRANSITIONS: TransitionType = 1 (moving to next step)
 - BACKWARD TRANSITIONS: TransitionType = 2 (rejection/rework scenarios)
@@ -415,7 +464,8 @@ OUTPUT FORMAT:
 -- Always start with a header comment
 -- Group INSERTs by table
 -- Use consistent formatting
--- Include inline comments for complex transitions";
+-- Include inline comments for complex transitions
+";
         }
 
         private string GetCurrentModelId()

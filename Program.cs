@@ -433,9 +433,15 @@ static void ConfigureOllamaSQL(IKernelBuilder kernelBuilder, IConfiguration conf
 
     logger.LogInformation("Configuring Ollama SQL generation with model: {model} at {endpoint}", model, endpoint);
 
+    var httpClient = new HttpClient
+    {
+        BaseAddress = new Uri(endpoint),
+        Timeout = TimeSpan.FromMilliseconds(config.GetValue<int>("AI:Performance:SqlGenerationTimeout", 600000))
+    }; 
+    
     kernelBuilder.AddOllamaChatCompletion(
         modelId: model,
-        endpoint: new Uri(endpoint));
+        httpClient: httpClient);
 }
 
 static void ConfigureOpenAIAdvanced(IKernelBuilder kernelBuilder, IConfiguration config, ILogger logger)
