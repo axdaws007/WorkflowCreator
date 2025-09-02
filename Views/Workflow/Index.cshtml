@@ -8,41 +8,26 @@
     var healthWarnings = ViewBag.HealthWarnings as List<string> ?? new List<string>();
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - WorkflowCreator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
 
-        .navbar-custom {
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border-bottom: 3px solid #667eea;
-        }
+    .container-main {
+        padding-top: 40px;
+        padding-bottom: 40px;
+    }
 
-        .container-main {
-            padding-top: 40px;
-            padding-bottom: 40px;
-        }
-
-        .workflow-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            padding: 40px;
-            animation: slideUp 0.6s ease-out;
-            position: relative;
-            overflow: hidden;
-        }
+    .workflow-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        padding: 40px;
+        animation: slideUp 0.6s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
 
         .workflow-card::before {
             content: '';
@@ -54,73 +39,76 @@
             background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
-        @@keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+    @@keyframes slideUp {
+        from
 
-        .workflow-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: center;
-            margin-bottom: 30px;
-        }
+    {
+        opacity: 0;
+        transform: translateY(30px);
+    }
 
-        .workflow-textarea {
-            border: 2px solid #e0e0e0;
-            border-radius: 15px;
-            padding: 20px;
-            font-size: 16px;
-            line-height: 1.6;
-            transition: all 0.3s ease;
-            resize: vertical;
-            min-height: 200px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    }
+
+    .workflow-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .workflow-textarea {
+        border: 2px solid #e0e0e0;
+        border-radius: 15px;
+        padding: 20px;
+        font-size: 16px;
+        line-height: 1.6;
+        transition: all 0.3s ease;
+        resize: vertical;
+        min-height: 200px;
+    }
 
         .workflow-textarea:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.15);
-            outline: none;
-            transform: translateY(-2px);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            outline: 0;
         }
 
-        .workflow-textarea::placeholder {
-            color: #adb5bd;
-            font-style: italic;
-        }
+    .character-counter {
+        text-align: right;
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-top: 5px;
+    }
 
-        .btn-generate {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            padding: 15px 50px;
-            font-size: 18px;
-            font-weight: 600;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
+    .btn-generate {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 15px 40px;
+        font-size: 18px;
+        font-weight: 600;
+        border-radius: 50px;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
 
         .btn-generate:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
             color: white;
         }
 
-        .btn-generate:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
+        .btn-generate:active {
+            transform: translateY(-1px);
         }
 
         .btn-generate .spinner-border {
@@ -132,16 +120,53 @@
         }
 
         .btn-generate.loading .btn-text {
-            display: none;
+            opacity: 0.7;
         }
 
-        .system-status {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-left: 5px solid #28a745;
+    .progress-bar-wrapper {
+        margin-top: 25px;
+        display: none;
+    }
+
+        .progress-bar-wrapper.show {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
         }
+
+    @@keyframes fadeIn {
+        from
+
+    {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+
+    }
+
+    .progress {
+        height: 8px;
+        border-radius: 10px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+
+    .system-status {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border-left: 4px solid #28a745;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
 
         .system-status.warning {
             border-left-color: #ffc107;
@@ -151,120 +176,111 @@
             border-left-color: #dc3545;
         }
 
-        .ai-config {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 25px;
-            margin: 25px 0;
-            border: 1px solid #e9ecef;
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 12px;
+        animation: pulse 2s infinite;
+    }
+
+        .status-dot.success {
+            background: #28a745;
         }
 
-        .config-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
+        .status-dot.warning {
+            background: #ffc107;
         }
 
-        .config-item:last-child {
-            margin-bottom: 0;
+        .status-dot.error {
+            background: #dc3545;
         }
 
-        .config-icon {
-            width: 24px;
-            height: 24px;
-            margin-right: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    @@keyframes pulse {
+        0%
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
+    {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
 
-        .status-dot.success { background-color: #28a745; }
-        .status-dot.warning { background-color: #ffc107; }
-        .status-dot.error { background-color: #dc3545; }
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
 
-        .example-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 30px;
-            border: 1px solid #dee2e6;
-        }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
 
-        .example-item {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+    }
+
+    .ai-config {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        border: 1px solid #dee2e6;
+    }
+
+    .config-item {
+        display: flex;
+        align-items: center;
+        padding: 15px 0;
+    }
+
+    .config-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .example-section {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-top: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .example-item {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-left: 4px solid #667eea;
+    }
 
         .example-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            border-left-color: #764ba2;
         }
 
         .example-item:last-child {
             margin-bottom: 0;
         }
 
-        .tips-section {
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 20px;
-            border: 1px solid #90caf9;
-        }
-
-        .character-counter {
-            font-size: 12px;
-            color: #6c757d;
-            text-align: right;
-            margin-top: 5px;
-        }
-
-        .progress-bar-wrapper {
-            display: none;
-            margin-top: 20px;
-        }
-
-        .progress {
-            height: 8px;
-            border-radius: 4px;
-            background-color: #e9ecef;
-        }
-
-        .progress-bar {
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            border-radius: 4px;
-        }
-
-        .floating-action {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 1000;
-        }
-
-        .btn-floating {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            font-size: 24px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
+    .btn-floating {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
 
         .btn-floating:hover {
             transform: scale(1.1);
@@ -272,352 +288,279 @@
             color: white;
         }
 
-        @@media (max-width: 768px) {
-            .workflow-card {
-                padding: 20px;
-                margin: 10px;
-            }
+    @@media (max-width: 768px) {
+        .workflow-card
 
-            .btn-generate {
-                padding: 12px 30px;
-                font-size: 16px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-custom">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="/">
-                <i class="fas fa-brain me-2 text-primary"></i>AI Workflow Creator
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/Workflow"><i class="fas fa-plus me-1"></i>Create</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/Workflow/List"><i class="fas fa-list me-1"></i>My Workflows</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/Workflow/TestConnection"><i class="fas fa-network-wired me-1"></i>Test AI</a>
-                    </li>
-                </ul>
+    {
+        padding: 20px;
+        margin: 10px;
+    }
+
+    .btn-generate {
+        padding: 12px 30px;
+        font-size: 16px;
+    }
+
+    }
+</style>
+
+<div class="container container-main">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+
+            <!-- System Status -->
+            <div class="system-status @(systemHealth ? "" : healthWarnings.Any() ? "warning" : "error")">
+                <div class="d-flex align-items-center">
+                    <div class="status-dot @(systemHealth ? "success" : healthWarnings.Any() ? "warning" : "error")"></div>
+                    <div>
+                        <strong>AI System Status:</strong>
+                        @if (systemHealth)
+                        {
+                            <span class="text-success">All systems operational</span>
+                        }
+                        else if (healthWarnings.Any())
+                        {
+                            <span class="text-warning">@healthWarnings.Count warning(s) detected</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger">System issues detected</span>
+                        }
+                        <a href="/Workflow/TestConnection" class="ms-2 text-decoration-none">
+                            <small><i class="fas fa-external-link-alt"></i> View Details</small>
+                        </a>
+                    </div>
+                </div>
             </div>
-        </div>
-    </nav>
 
-    <div class="container container-main">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-md-10">
+            <!-- Main Workflow Creation Card -->
+            <div class="workflow-card">
+                <h1 class="workflow-header fw-bold">
+                    <i class="fas fa-magic me-2"></i>Create Intelligent Workflow
+                </h1>
 
-                <!-- System Status -->
-                <div class="system-status @(systemHealth ? "" : healthWarnings.Any() ? "warning" : "error")">
-                    <div class="d-flex align-items-center">
-                        <div class="status-dot @(systemHealth ? "success" : healthWarnings.Any() ? "warning" : "error")"></div>
-                        <strong>
-                            @if (systemHealth)
-                            {
-                                <span class="text-success">AI Services Online</span>
-                            }
-                            else if (healthWarnings.Any())
-                            {
-                                <span class="text-warning">AI Services Degraded</span>
-                            }
-                            else
-                            {
-                                <span class="text-danger">AI Services Offline</span>
-                            }
-                        </strong>
-                        <span class="ms-auto">
-                            <a href="/Workflow/TestConnection" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-tools me-1"></i>Diagnostics
-                            </a>
-                        </span>
-                    </div>
-
-                    @if (healthWarnings.Any())
-                    {
-                        <div class="mt-2">
-                            @foreach (var warning in healthWarnings)
-                            {
-                                <div class="small text-warning">⚠ @warning</div>
-                            }
-                        </div>
-                    }
-                </div>
-
-                <!-- Main Workflow Card -->
-                <div class="workflow-card">
-                    <h1 class="workflow-header fw-bold">
-                        <i class="fas fa-magic me-2"></i>Create Intelligent Workflow
-                    </h1>
-
-                    <!-- AI Configuration Display -->
-                    <div class="ai-config">
-                        <h6 class="fw-bold mb-3">
-                            <i class="fas fa-cogs me-2"></i>AI Configuration
-                            @if (isHybridSetup)
-                            {
-                                <span class="badge bg-success ms-2">Hybrid Setup</span>
-                            }
-                        </h6>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="config-item">
-                                    <div class="config-icon">
-                                        <i class="fas fa-cloud text-info"></i>
-                                    </div>
-                                    <div>
-                                        <strong>Analysis:</strong> @cloudProvider
-                                        <br><small class="text-muted">Natural language understanding</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="config-item">
-                                    <div class="config-icon">
-                                        <i class="fas fa-server text-warning"></i>
-                                    </div>
-                                    <div>
-                                        <strong>SQL Generation:</strong> @localProvider
-                                        <br><small class="text-muted">Code generation</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Workflow Creation Form -->
-                    <form asp-action="Create" method="post" id="workflowForm">
-                        @Html.AntiForgeryToken()
-
-                        <div class="mb-4">
-                            <label for="WorkflowDescription" class="form-label fw-semibold fs-5">
-                                <i class="fas fa-pencil-alt me-2"></i>Describe Your Workflow
-                            </label>
-                            <textarea asp-for="WorkflowDescription"
-                                      class="form-control workflow-textarea"
-                                      rows="8"
-                                      placeholder="Describe your business process in natural language... For example: 'Create an employee onboarding workflow where new hires complete paperwork, then HR reviews documents, followed by manager approval, and finally IT setup of accounts and equipment.'"
-                                      required
-                                      maxlength="5000"
-                                      oninput="updateCharacterCount(this)"></textarea>
-
-                            <div class="character-counter" id="characterCounter">0 / 5,000 characters</div>
-                            <span asp-validation-for="WorkflowDescription" class="text-danger"></span>
-                        </div>
-
-                        <div class="text-center">
-                            <button type="submit" class="btn btn-generate" id="generateBtn">
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                <span class="btn-text">
-                                    <i class="fas fa-brain me-2"></i>Generate Workflow with AI
-                                </span>
-                            </button>
-                        </div>
-
-                        <!-- Progress Bar -->
-                        <div class="progress-bar-wrapper" id="progressWrapper">
-                            <div class="progress">
-                                <div class="progress-bar progress-bar-animated" role="progressbar" style="width: 0%"></div>
-                            </div>
-                            <div class="text-center mt-2">
-                                <small class="text-muted" id="progressText">Initializing AI analysis...</small>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Examples Section -->
-                <div class="example-section">
-                    <h5 class="fw-bold mb-3">
-                        <i class="fas fa-lightbulb me-2"></i>Example Workflows
-                    </h5>
-                    <p class="text-muted mb-3">Click any example to use it as a starting point:</p>
-
-                    <div class="example-item" onclick="useExample(this)">
-                        <strong>📋 Employee Onboarding</strong>
-                        <p class="mb-1 small text-muted">Create an employee onboarding workflow where new hires complete digital paperwork, HR reviews and verifies documents, direct manager conducts orientation meeting, and IT provisions accounts and equipment access.</p>
-                    </div>
-
-                    <div class="example-item" onclick="useExample(this)">
-                        <strong>💰 Purchase Order Approval</strong>
-                        <p class="mb-1 small text-muted">Design a purchase order approval process where employees submit requests, amounts under $1000 get auto-approved, amounts $1000-$5000 require manager approval, and amounts over $5000 need both manager and director approval before procurement.</p>
-                    </div>
-
-                    <div class="example-item" onclick="useExample(this)">
-                        <strong>🎫 Customer Support Ticket</strong>
-                        <p class="mb-1 small text-muted">Build a support ticket workflow where customers submit issues, system automatically categorizes by priority, Level 1 support handles initial response, and escalates to Level 2 or specialists based on complexity and resolution time.</p>
-                    </div>
-
-                    <div class="example-item" onclick="useExample(this)">
-                        <strong>📝 Document Review Process</strong>
-                        <p class="mb-1 small text-muted">Establish a document review workflow where authors submit drafts, peer reviewers provide feedback and suggestions, senior reviewer makes final approval decision, and documents get published to company knowledge base upon approval.</p>
-                    </div>
-                </div>
-
-                <!-- Tips Section -->
-                <div class="tips-section">
+                <!-- AI Configuration Display -->
+                <div class="ai-config">
                     <h6 class="fw-bold mb-3">
-                        <i class="fas fa-star me-2"></i>Tips for Better AI Results
+                        <i class="fas fa-cogs me-2"></i>AI Configuration
+                        @if (isHybridSetup)
+                        {
+                            <span class="badge bg-success ms-2">Hybrid Setup</span>
+                        }
                     </h6>
+
                     <div class="row">
                         <div class="col-md-6">
-                            <ul class="small mb-0">
-                                <li><strong>Be specific</strong> about roles and responsibilities</li>
-                                <li><strong>Include decision points</strong> and approval criteria</li>
-                                <li><strong>Mention timing</strong> and deadlines where relevant</li>
-                            </ul>
+                            <div class="config-item">
+                                <div class="config-icon">
+                                    <i class="fas fa-cloud text-info"></i>
+                                </div>
+                                <div>
+                                    <strong>Analysis:</strong> @cloudProvider
+                                    <br><small class="text-muted">Natural language understanding</small>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <ul class="small mb-0">
-                                <li><strong>Describe exceptions</strong> and error handling</li>
-                                <li><strong>Include notifications</strong> and communications</li>
-                                <li><strong>Think step-by-step</strong> through the entire process</li>
-                            </ul>
+                            <div class="config-item">
+                                <div class="config-icon">
+                                    <i class="fas fa-server text-warning"></i>
+                                </div>
+                                <div>
+                                    <strong>SQL Generation:</strong> @localProvider
+                                    <br><small class="text-muted">Code generation</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Workflow Creation Form -->
+                <form asp-action="Create" method="post" id="workflowForm">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-4">
+                        <label for="WorkflowDescription" class="form-label fw-semibold fs-5">
+                            <i class="fas fa-pencil-alt me-2"></i>Describe Your Workflow
+                        </label>
+                        <textarea asp-for="WorkflowDescription"
+                                  class="form-control workflow-textarea"
+                                  rows="8"
+                                  placeholder="Describe your business process in natural language... For example: 'Create an employee onboarding workflow where new hires complete paperwork, then HR reviews documents, followed by manager approval, and finally IT setup of accounts and equipment.'"
+                                  required
+                                  maxlength="5000"
+                                  oninput="updateCharacterCount(this)"></textarea>
+
+                        <div class="character-counter" id="characterCounter">0 / 5,000 characters</div>
+                        <span asp-validation-for="WorkflowDescription" class="text-danger"></span>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-generate" id="generateBtn">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span class="btn-text">
+                                <i class="fas fa-brain me-2"></i>Generate Workflow with AI
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-bar-wrapper" id="progressWrapper">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <small class="text-muted" id="progressText">Initializing AI analysis...</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Examples Section -->
+            <div class="example-section">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-lightbulb me-2"></i>Example Workflows
+                </h5>
+                <p class="text-muted mb-4">Click any example to populate the form with a sample workflow description:</p>
+
+                <div class="example-item" onclick="setExample(this)">
+                    <strong>Employee Onboarding Process</strong>
+                    <p class="mb-0 mt-2">New employee submits initial paperwork, HR reviews documents and creates accounts, direct manager conducts orientation and assigns workspace, and IT provisions equipment and system access.</p>
+                </div>
+
+                <div class="example-item" onclick="setExample(this)">
+                    <strong>Purchase Order Approval</strong>
+                    <p class="mb-0 mt-2">Requestor submits purchase request with justification, department manager reviews and approves or rejects, finance department validates budget and processes approved orders.</p>
+                </div>
+
+                <div class="example-item" onclick="setExample(this)">
+                    <strong>Customer Support Ticket</strong>
+                    <p class="mb-0 mt-2">Customer submits support request, agent triages and categorizes issue, technical team investigates and provides solution, customer confirms resolution or requests escalation.</p>
+                </div>
+
+                <div class="example-item" onclick="setExample(this)">
+                    <strong>Document Review Process</strong>
+                    <p class="mb-0 mt-2">Author submits document for review, peer reviewers provide feedback and recommendations, editor incorporates changes and finalizes document, stakeholders approve final version for publication.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Floating Help Button -->
+<button type="button" class="btn btn-floating" data-bs-toggle="modal" data-bs-target="#helpModal" title="Help & Tips">
+    <i class="fas fa-question"></i>
+</button>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="helpModalLabel">
+                    <i class="fas fa-question-circle me-2"></i>How to Create Effective Workflows
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6><i class="fas fa-check me-2"></i>Best Practices</h6>
+                <ul>
+                    <li>Be specific about each step and who performs it</li>
+                    <li>Include decision points (approve/reject scenarios)</li>
+                    <li>Mention any approval hierarchies or parallel processes</li>
+                    <li>Describe what happens when items are rejected or require rework</li>
+                    <li>Include termination conditions (completed, cancelled, etc.)</li>
+                </ul>
+
+                <h6 class="mt-4"><i class="fas fa-lightbulb me-2"></i>AI Processing</h6>
+                <p>Our hybrid AI system uses cloud-based analysis for natural language understanding and local AI for secure SQL generation, ensuring both intelligence and data privacy.</p>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Floating Help Button -->
-    <div class="floating-action">
-        <button type="button" class="btn btn-floating" data-bs-toggle="tooltip" data-bs-placement="left" title="Need help? Check our examples and tips above!">
-            <i class="fas fa-question"></i>
-        </button>
-    </div>
+<script>
+    function updateCharacterCount(textarea) {
+        const counter = document.getElementById('characterCounter');
+        const current = textarea.value.length;
+        const max = textarea.getAttribute('maxlength');
+        counter.textContent = `${current} / ${max} characters`;
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Form submission with progress simulation
-        document.getElementById('workflowForm').addEventListener('submit', function(e) {
-            const btn = document.getElementById('generateBtn');
-            const progressWrapper = document.getElementById('progressWrapper');
-            const progressBar = progressWrapper.querySelector('.progress-bar');
-            const progressText = document.getElementById('progressText');
-
-            btn.classList.add('loading');
-            btn.disabled = true;
-            progressWrapper.style.display = 'block';
-
-            // Simulate progress updates
-            let progress = 0;
-            const progressMessages = [
-                'Connecting to AI services...',
-                'Analyzing workflow description...',
-                'Extracting workflow steps...',
-                'Determining required statuses...',
-                'Generating SQL statements...',
-                'Finalizing results...'
-            ];
-
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 15 + 5; // Random progress increments
-                if (progress > 90) progress = 90; // Cap at 90% until actual completion
-
-                progressBar.style.width = progress + '%';
-
-                const messageIndex = Math.floor((progress / 100) * progressMessages.length);
-                if (messageIndex < progressMessages.length) {
-                    progressText.textContent = progressMessages[messageIndex];
-                }
-            }, 800);
-
-            // Clear interval when form actually submits (page will change)
-            setTimeout(() => {
-                clearInterval(progressInterval);
-            }, 15000); // Fallback clear after 15 seconds
-        });
-
-        // Character counter
-        function updateCharacterCount(textarea) {
-            const counter = document.getElementById('characterCounter');
-            const current = textarea.value.length;
-            const max = textarea.getAttribute('maxlength');
-            counter.textContent = `${current} / ${max} characters`;
-
-            if (current > max * 0.9) {
-                counter.classList.add('text-warning');
-            } else {
-                counter.classList.remove('text-warning');
-            }
+        if (current > max * 0.9) {
+            counter.style.color = '#dc3545';
+        } else if (current > max * 0.7) {
+            counter.style.color = '#ffc107';
+        } else {
+            counter.style.color = '#6c757d';
         }
+    }
 
-        // Example usage
-        function useExample(element) {
-            const description = element.querySelector('p').textContent;
-            const textarea = document.getElementById('WorkflowDescription');
-            textarea.value = description;
-            updateCharacterCount(textarea);
+    function setExample(element) {
+        const description = element.querySelector('p').textContent;
+        const textarea = document.querySelector('[name="WorkflowDescription"]');
+        textarea.value = description;
+        updateCharacterCount(textarea);
 
-            // Smooth scroll to textarea and focus
-            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => {
-                textarea.focus();
-                textarea.setSelectionRange(description.length, description.length);
-            }, 500);
-
-            // Visual feedback
-            element.style.transform = 'scale(1.02)';
-            element.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.3)';
-            setTimeout(() => {
-                element.style.transform = '';
-                element.style.boxShadow = '';
-            }, 300);
-        }
-
-        // Initialize tooltips
-        document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-
-            // Initialize character counter
-            const textarea = document.getElementById('WorkflowDescription');
-            updateCharacterCount(textarea);
+        // Smooth scroll to form
+        document.querySelector('.workflow-card').scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
         });
 
-        // Auto-save draft functionality (optional)
-        let autoSaveTimeout;
-        document.getElementById('WorkflowDescription').addEventListener('input', function() {
-            clearTimeout(autoSaveTimeout);
-            autoSaveTimeout = setTimeout(() => {
-                const content = this.value;
-                if (content.length > 50) {
-                    localStorage.setItem('workflow_draft', content);
-                    console.log('Draft auto-saved');
-                }
-            }, 2000);
-        });
+        // Highlight the textarea briefly
+        textarea.style.borderColor = '#667eea';
+        textarea.style.boxShadow = '0 0 0 0.2rem rgba(102, 126, 234, 0.25)';
+        setTimeout(() => {
+            textarea.style.borderColor = '';
+            textarea.style.boxShadow = '';
+        }, 2000);
+    }
 
-        // Restore draft on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const savedDraft = localStorage.getItem('workflow_draft');
-            const textarea = document.getElementById('WorkflowDescription');
+    // Form submission with progress simulation
+    document.getElementById('workflowForm').addEventListener('submit', function(e) {
+        const btn = document.getElementById('generateBtn');
+        const wrapper = document.getElementById('progressWrapper');
+        const progressBar = wrapper.querySelector('.progress-bar');
+        const progressText = document.getElementById('progressText');
 
-            if (savedDraft && !textarea.value) {
-                textarea.value = savedDraft;
-                updateCharacterCount(textarea);
+        btn.classList.add('loading');
+        btn.disabled = true;
+        wrapper.classList.add('show');
 
-                // Show restoration notification
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-info alert-dismissible fade show';
-                alertDiv.innerHTML = `
-                    <i class="fas fa-info-circle me-2"></i>
-                    Restored your previous draft.
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                textarea.parentNode.insertBefore(alertDiv, textarea);
+        // Simulate progress (replace with actual progress tracking if available)
+        let progress = 0;
+        const messages = [
+            'Initializing AI analysis...',
+            'Processing workflow description...',
+            'Extracting workflow steps...',
+            'Analyzing status requirements...',
+            'Generating SQL statements...',
+            'Finalizing workflow...'
+        ];
+
+        const interval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress > 90) progress = 90;
+
+            progressBar.style.width = progress + '%';
+            const messageIndex = Math.floor((progress / 100) * messages.length);
+            if (messages[messageIndex]) {
+                progressText.textContent = messages[messageIndex];
             }
-        });
-    </script>
-</body>
-</html>
+
+            if (progress >= 90) {
+                clearInterval(interval);
+                progressText.textContent = 'Almost complete...';
+            }
+        }, 800);
+    });
+
+    // Initialize character counter on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const textarea = document.querySelector('[name="WorkflowDescription"]');
+        if (textarea) {
+            updateCharacterCount(textarea);
+        }
+    });
+</script>

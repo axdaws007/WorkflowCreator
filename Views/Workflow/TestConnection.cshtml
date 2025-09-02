@@ -3,985 +3,500 @@
     ViewData["Title"] = "AI Service Diagnostics";
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - WorkflowCreator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+
+    .test-container {
+        padding-top: 30px;
+        padding-bottom: 50px;
+    }
+
+    .test-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        padding: 40px;
+        margin-bottom: 30px;
+        animation: slideUp 0.6s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .test-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
-        .navbar-custom {
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border-bottom: 3px solid #667eea;
-        }
+    @@keyframes slideUp {
+        from
 
-        .test-container {
-            padding-top: 30px;
-            padding-bottom: 50px;
-        }
+    {
+        opacity: 0;
+        transform: translateY(30px);
+    }
 
-        .test-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            padding: 40px;
-            margin-bottom: 30px;
-            animation: slideUp 0.6s ease-out;
-            position: relative;
-            overflow: hidden;
-        }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 
-            .test-card::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 4px;
-                background: linear-gradient(90deg, #667eea, #764ba2);
-            }
+    }
 
-        @@keyframes slideUp {
-            from
+    .header-section {
+        text-align: center;
+        margin-bottom: 40px;
+    }
 
-        {
-            opacity: 0;
-            transform: translateY(30px);
-        }
+    .header-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
 
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .architecture-diagram {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        text-align: center;
+        border: 1px solid #dee2e6;
+    }
 
-        }
+    .diagram-flow {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin: 20px 0;
+    }
 
-        .header-section {
-            text-align: center;
-            margin-bottom: 40px;
-        }
+    .flow-item {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        min-width: 150px;
+        text-align: center;
+    }
 
-        .header-title {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+    .flow-arrow {
+        color: #667eea;
+        font-size: 24px;
+    }
 
-        .architecture-diagram {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            border: 1px solid #dee2e6;
-            text-align: center;
-        }
+    .test-section {
+        margin-bottom: 30px;
+    }
 
-        .architecture-flow {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin: 20px 0;
-        }
+    .test-group {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+    }
 
-        .arch-component {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            min-width: 150px;
-        }
+    .test-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 25px;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
 
-            .arch-component:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            }
-
-            .arch-component.cloud {
-                border-left: 4px solid #007bff;
-            }
-
-            .arch-component.local {
-                border-left: 4px solid #ffc107;
-            }
-
-            .arch-component.processing {
-                border-left: 4px solid #28a745;
-            }
-
-        .flow-arrow {
-            font-size: 24px;
-            color: #667eea;
-            margin: 0 10px;
-        }
-
-        .service-card {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid #dee2e6;
-            position: relative;
-        }
-
-            .service-card.cloud {
-                border-left: 5px solid #007bff;
-            }
-
-            .service-card.local {
-                border-left: 5px solid #ffc107;
-            }
-
-        .service-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .service-info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .info-item {
-            display: flex;
-            align-items: center;
-        }
-
-        .info-icon {
-            width: 24px;
-            height: 24px;
-            margin-right: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .test-section {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .test-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
             color: white;
-            padding: 12px 30px;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-            margin: 0 10px;
         }
 
-            .test-btn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-                color: white;
-            }
-
-            .test-btn.cloud {
-                background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            }
-
-            .test-btn.local {
-                background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
-            }
-
-            .test-btn:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-                transform: none;
-            }
-
-        .result-section {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            display: none;
+        .test-button:disabled {
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
         }
 
-            .result-section.success {
-                background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-                border: 1px solid #28a745;
-                color: #155724;
-            }
+    .test-result {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid transparent;
+        display: none;
+        animation: slideDown 0.3s ease-out;
+    }
 
-            .result-section.error {
-                background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-                border: 1px solid #dc3545;
-                color: #721c24;
-            }
-
-            .result-section.testing {
-                background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-                border: 1px solid #17a2b8;
-                color: #0c5460;
-            }
-
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
+        .test-result.show {
+            display: block;
         }
 
-            .status-indicator.success {
-                background-color: #28a745;
-            }
-
-            .status-indicator.error {
-                background-color: #dc3545;
-            }
-
-            .status-indicator.warning {
-                background-color: #ffc107;
-            }
-
-            .status-indicator.unknown {
-                background-color: #6c757d;
-            }
-
-        .configuration-summary {
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid #2196f3;
-        }
-
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .config-item {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            border-left: 4px solid #2196f3;
-        }
-
-        .performance-metrics {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid #ffc107;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .metric-item {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            border-left: 4px solid #ffc107;
-        }
-
-        .metric-value {
-            font-size: 20px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-
-        .metric-label {
-            font-size: 12px;
-            color: #6c757d;
-        }
-
-        .recommendations {
+        .test-result.success {
             background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid #28a745;
+            border-left-color: #28a745;
+            color: #155724;
         }
 
-        .warning-section {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid #ffc107;
+        .test-result.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border-left-color: #dc3545;
+            color: #721c24;
         }
 
-        .setup-instructions {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid #dee2e6;
+    @@keyframes slideDown {
+        from
+
+    {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .config-display {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        border: 1px solid #2196f3;
+    }
+
+    .config-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+
+        .config-item:last-child {
+            border-bottom: none;
         }
 
-        .code-block {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            margin: 10px 0;
-            overflow-x: auto;
-        }
+    .config-label {
+        font-weight: 600;
+        color: #2d3748;
+    }
 
-        .spinner-custom {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
+    .config-value {
+        color: #667eea;
+        font-weight: 500;
+    }
 
-        @@keyframes spin {
-            0%
+    @@media (max-width: 768px) {
+        .test-card
 
-        {
-            transform: rotate(0deg);
-        }
+    {
+        padding: 20px;
+        margin: 10px;
+    }
 
-        100% {
-            transform: rotate(360deg);
-        }
+    .diagram-flow {
+        flex-direction: column;
+    }
 
-        }
+    .flow-arrow {
+        transform: rotate(90deg);
+    }
 
-        .floating-refresh {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 1000;
-        }
+    }
+</style>
 
-        .btn-floating {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            border: none;
-            color: white;
-            font-size: 24px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
+<div class="container test-container">
+    <div class="row">
+        <div class="col-12">
 
-            .btn-floating:hover {
-                transform: scale(1.1);
-                box-shadow: 0 12px 30px rgba(0,0,0,0.3);
-                color: white;
-            }
+            <!-- Header -->
+            <div class="test-card">
+                <div class="header-section">
+                    <h1 class="header-title fw-bold">
+                        <i class="fas fa-network-wired me-2"></i>AI Service Diagnostics
+                    </h1>
+                    <p class="text-muted fs-5">Test and monitor your hybrid AI system connectivity</p>
+                </div>
 
-        @@media (max-width: 768px) {
-            .test-card
+                <!-- System Architecture Overview -->
+                <div class="architecture-diagram">
+                    <h5 class="fw-bold mb-3">
+                        <i class="fas fa-sitemap me-2"></i>Hybrid AI Architecture
+                    </h5>
+                    <div class="diagram-flow">
+                        <div class="flow-item">
+                            <i class="fas fa-cloud text-info mb-2" style="font-size: 2rem;"></i>
+                            <h6>Cloud AI</h6>
+                            <small>Workflow Analysis</small>
+                        </div>
+                        <i class="flow-arrow fas fa-arrow-right"></i>
+                        <div class="flow-item">
+                            <i class="fas fa-server text-warning mb-2" style="font-size: 2rem;"></i>
+                            <h6>Local AI</h6>
+                            <small>SQL Generation</small>
+                        </div>
+                        <i class="flow-arrow fas fa-arrow-right"></i>
+                        <div class="flow-item">
+                            <i class="fas fa-database text-success mb-2" style="font-size: 2rem;"></i>
+                            <h6>Database</h6>
+                            <small>PAWS System</small>
+                        </div>
+                    </div>
+                </div>
 
-        {
-            padding: 20px;
-            margin: 10px;
-        }
-
-        .architecture-flow {
-            flex-direction: column;
-        }
-
-        .flow-arrow {
-            transform: rotate(90deg);
-        }
-
-        .config-grid,
-        .metrics-grid {
-            grid-template-columns: 1fr;
-        }
-
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-custom">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="/">
-                <i class="fas fa-brain me-2 text-primary"></i>AI Workflow Creator
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/Workflow"><i class="fas fa-plus me-1"></i>Create</a>
-                <a class="nav-link" href="/Workflow/List"><i class="fas fa-list me-1"></i>Workflows</a>
-                <a class="nav-link active" href="/Workflow/TestConnection"><i class="fas fa-network-wired me-1"></i>Diagnostics</a>
+                <!-- Current Configuration -->
+                <div class="config-display">
+                    <h5 class="fw-bold mb-3">
+                        <i class="fas fa-cogs me-2"></i>Current Configuration
+                    </h5>
+                    <div class="config-item">
+                        <div class="config-label">Cloud Provider</div>
+                        <div class="config-value">@(Model.CloudProvider ?? "Not configured")</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Cloud Model</div>
+                        <div class="config-value">@(Model.CloudModelId ?? "Unknown")</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Local Provider</div>
+                        <div class="config-value">@(Model.LocalProvider ?? "Not configured")</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Local Model</div>
+                        <div class="config-value">@(Model.LocalModelId ?? "Unknown")</div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </nav>
 
-    <div class="container test-container">
-        <div class="row">
-            <div class="col-12">
+            <!-- Connection Tests -->
+            <div class="test-card">
+                <h3><i class="fas fa-flask me-2"></i>Connection Tests</h3>
 
-                <!-- Header -->
-                <div class="test-card">
-                    <div class="header-section">
-                        <h1 class="header-title fw-bold">
-                            <i class="fas fa-network-wired me-2"></i>AI Service Diagnostics
-                        </h1>
-                        <p class="text-muted fs-5">Test and monitor your hybrid AI setup for optimal workflow processing</p>
-                    </div>
-
-                    <!-- Architecture Overview -->
-                    <div class="architecture-diagram">
-                        <h5 class="fw-bold mb-3">
-                            <i class="fas fa-sitemap me-2"></i>Hybrid AI Architecture
-                            @if (Model.IsHybridSetup)
-                            {
-                                <span class="badge bg-success ms-2">Optimal Setup</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-warning ms-2">Single Provider</span>
-                            }
-                        </h5>
-
-                        <div class="architecture-flow">
-                            <div class="arch-component cloud">
-                                <i class="fas fa-cloud fa-2x text-primary mb-2"></i>
-                                <h6><strong>Cloud AI</strong></h6>
-                                <small>@Model.CloudProvider</small>
-                                <div class="small text-muted">Natural Language Analysis</div>
-                            </div>
-
-                            <span class="flow-arrow">→</span>
-
-                            <div class="arch-component processing">
-                                <i class="fas fa-brain fa-2x text-success mb-2"></i>
-                                <h6><strong>Processing</strong></h6>
-                                <small>Analysis & Logic</small>
-                                <div class="small text-muted">Workflow Understanding</div>
-                            </div>
-
-                            <span class="flow-arrow">→</span>
-
-                            <div class="arch-component local">
-                                <i class="fas fa-server fa-2x text-warning mb-2"></i>
-                                <h6><strong>Local AI</strong></h6>
-                                <small>@Model.LocalProvider</small>
-                                <div class="small text-muted">SQL Code Generation</div>
-                            </div>
+                <!-- Cloud AI Test -->
+                <div class="test-group">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-cloud text-info me-2"></i>Cloud AI Service
+                            </h5>
+                            <small class="text-muted">Tests workflow analysis capabilities</small>
                         </div>
-
-                        <div class="mt-3">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                <strong>Environment:</strong> @Model.Environment |
-                                <strong>Setup Type:</strong> @Model.RecommendedSetup
-                            </small>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Configuration Summary -->
-                @if (Model.IsFullyConfigured)
-                {
-                    <div class="test-card">
-                        <h3><i class="fas fa-cogs me-2"></i>Current Configuration</h3>
-                        <div class="configuration-summary">
-                            <div class="text-center mb-3">
-                                <strong>@Model.ConfigurationSummary</strong>
-                            </div>
-
-                            <div class="config-grid">
-                                <div class="config-item">
-                                    <h6><i class="fas fa-cloud me-2 text-primary"></i>Cloud Service</h6>
-                                    <div><strong>Provider:</strong> @Model.CloudProvider</div>
-                                    <div><strong>Model:</strong> @Model.CloudModelId</div>
-                                    <div><strong>Endpoint:</strong> @Model.CloudEndpoint</div>
-                                </div>
-
-                                <div class="config-item">
-                                    <h6><i class="fas fa-server me-2 text-warning"></i>Local Service</h6>
-                                    <div><strong>Provider:</strong> @Model.LocalProvider</div>
-                                    <div><strong>Model:</strong> @Model.LocalModelId</div>
-                                    <div><strong>Endpoint:</strong> @Model.LocalEndpoint</div>
-                                </div>
-                            </div>
-
-                            @if (Model.AvailableFeatures.Any())
-                            {
-                                <div class="mt-3">
-                                    <h6><i class="fas fa-check-circle me-2 text-success"></i>Available Features:</h6>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        @foreach (var feature in Model.AvailableFeatures)
-                                        {
-                                            <span class="badge bg-success">@feature</span>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                <!-- Configuration Warnings -->
-                @if (Model.ConfigurationWarnings.Any())
-                {
-                    <div class="test-card">
-                        <h3><i class="fas fa-exclamation-triangle me-2"></i>Configuration Issues</h3>
-                        <div class="warning-section">
-                            @foreach (var warning in Model.ConfigurationWarnings)
-                            {
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                                    <span>@warning</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                <!-- Cloud AI Service Testing -->
-                <div class="test-card">
-                    <div class="service-card cloud">
-                        <div class="service-header">
-                            <h4><i class="fas fa-cloud me-2"></i>Cloud AI Service (Workflow Analysis)</h4>
-                            @if (Model.LastCloudTest != null)
-                            {
-                                <div>
-                                    <span class="status-indicator @(Model.LastCloudTest.IsConnected ? "success" : "error")"></span>
-                                    <small class="text-muted">Last tested: @Model.LastCloudTest.TestedAt.ToString("HH:mm:ss")</small>
-                                </div>
-                            }
-                        </div>
-
-                        <div class="service-info">
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-tag text-primary"></i></div>
-                                <div><strong>Provider:</strong> @Model.CloudProvider</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-microchip text-primary"></i></div>
-                                <div><strong>Model:</strong> @Model.CloudModelId</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-globe text-primary"></i></div>
-                                <div><strong>Endpoint:</strong> @Model.CloudEndpoint</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-tasks text-primary"></i></div>
-                                <div><strong>Purpose:</strong> Natural language understanding, workflow analysis</div>
-                            </div>
-                        </div>
-
-                        <div class="test-section">
-                            <button class="test-btn cloud" onclick="testCloudConnection()" id="cloudTestBtn">
-                                <span class="spinner-custom" id="cloudSpinner"></span>
-                                <i class="fas fa-plug me-2"></i>Test Cloud Connection
-                            </button>
-                        </div>
-
-                        <div class="result-section" id="cloudResult"></div>
-                    </div>
-                </div>
-
-                <!-- Local AI Service Testing -->
-                <div class="test-card">
-                    <div class="service-card local">
-                        <div class="service-header">
-                            <h4><i class="fas fa-server me-2"></i>Local AI Service (SQL Generation)</h4>
-                            @if (Model.LastLocalTest != null)
-                            {
-                                <div>
-                                    <span class="status-indicator @(Model.LastLocalTest.IsConnected ? "success" : "error")"></span>
-                                    <small class="text-muted">Last tested: @Model.LastLocalTest.TestedAt.ToString("HH:mm:ss")</small>
-                                </div>
-                            }
-                        </div>
-
-                        <div class="service-info">
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-tag text-warning"></i></div>
-                                <div><strong>Provider:</strong> @Model.LocalProvider</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-microchip text-warning"></i></div>
-                                <div><strong>Model:</strong> @Model.LocalModelId</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-network-wired text-warning"></i></div>
-                                <div><strong>Endpoint:</strong> @Model.LocalEndpoint</div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-icon"><i class="fas fa-database text-warning"></i></div>
-                                <div><strong>Purpose:</strong> Specialized SQL code generation</div>
-                            </div>
-                        </div>
-
-                        <div class="test-section">
-                            <button class="test-btn local" onclick="testLocalConnection()" id="localTestBtn">
-                                <span class="spinner-custom" id="localSpinner"></span>
-                                <i class="fas fa-database me-2"></i>Test Local Connection
-                            </button>
-                        </div>
-
-                        <div class="result-section" id="localResult"></div>
-                    </div>
-                </div>
-
-                <!-- Performance Metrics -->
-                @if (Model.PerformanceMetrics.Any())
-                {
-                    <div class="test-card">
-                        <h3><i class="fas fa-tachometer-alt me-2"></i>Performance Metrics</h3>
-                        <div class="performance-metrics">
-                            <div class="metrics-grid">
-                                @foreach (var metric in Model.PerformanceMetrics)
-                                {
-                                    <div class="metric-item">
-                                        <div class="metric-value">@metric.Value</div>
-                                        <div class="metric-label">@metric.Key.Replace("Ms", " (ms)").Replace("_", " ")</div>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                }
-
-                <!-- Optimization Suggestions -->
-                @if (Model.OptimizationSuggestions.Any())
-                {
-                    <div class="test-card">
-                        <h3><i class="fas fa-lightbulb me-2"></i>Optimization Suggestions</h3>
-                        <div class="recommendations">
-                            @foreach (var suggestion in Model.OptimizationSuggestions)
-                            {
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fas fa-arrow-right text-success me-2"></i>
-                                    <span>@suggestion</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-
-                <!-- Combined Testing -->
-                <div class="test-card">
-                    <h3><i class="fas fa-check-double me-2"></i>System Health Check</h3>
-                    <div class="text-center">
-                        <p class="text-muted mb-4">Test all AI services simultaneously for comprehensive system validation</p>
-                        <button class="test-btn" onclick="testAllConnections()" id="allTestBtn">
-                            <span class="spinner-custom" id="allSpinner"></span>
-                            <i class="fas fa-heartbeat me-2"></i>Test All Services
+                        <button class="btn test-button" id="cloudTestBtn" onclick="testCloudConnection()">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" id="cloudSpinner" style="display: none;"></span>
+                            Test Cloud AI
                         </button>
                     </div>
-                    <div class="result-section" id="allResult"></div>
+                    <div class="test-result" id="cloudResult">
+                        <strong>Result:</strong> <span id="cloudResultText">Waiting for test...</span>
+                    </div>
                 </div>
 
-                <!-- Setup Instructions -->
-                <div class="test-card">
-                    <h3><i class="fas fa-book me-2"></i>Setup Instructions</h3>
-                    <div class="setup-instructions">
-                        <div class="accordion" id="setupAccordion">
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#cloudSetup">
-                                        <i class="fas fa-cloud me-2"></i>Cloud AI Setup (OpenAI)
-                                    </button>
-                                </h2>
-                                <div id="cloudSetup" class="accordion-collapse collapse show" data-bs-parent="#setupAccordion">
-                                    <div class="accordion-body">
-                                        <h6>1. Get OpenAI API Access</h6>
-                                        <p>Sign up at <a href="https://platform.openai.com" target="_blank">platform.openai.com</a> and generate an API key.</p>
+                <!-- Local AI Test -->
+                <div class="test-group">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-server text-warning me-2"></i>Local AI Service
+                            </h5>
+                            <small class="text-muted">Tests SQL generation capabilities</small>
+                        </div>
+                        <button class="btn test-button" id="localTestBtn" onclick="testLocalConnection()">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" id="localSpinner" style="display: none;"></span>
+                            Test Local AI
+                        </button>
+                    </div>
+                    <div class="test-result" id="localResult">
+                        <strong>Result:</strong> <span id="localResultText">Waiting for test...</span>
+                    </div>
+                </div>
 
-                                        <h6>2. Configure Application</h6>
-                                        <p>Add your API key to <code>appsettings.json</code>:</p>
-                                        <div class="code-block">
-                                            "AI": {
-                                            "Cloud": {
-                                            "Provider": "OpenAI",
-                                            "OpenAI": {
-                                            "ApiKey": "sk-your-api-key-here",
-                                            "ModelId": "gpt-4o-mini"
-                                            }
-                                            }
-                                            }
-                                        </div>
+                <!-- Comprehensive Test -->
+                <div class="test-group">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-check-double text-success me-2"></i>Full System Test
+                            </h5>
+                            <small class="text-muted">Tests complete workflow pipeline</small>
+                        </div>
+                        <button class="btn test-button" id="allTestBtn" onclick="testAllConnections()">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" id="allSpinner" style="display: none;"></span>
+                            Test All Services
+                        </button>
+                    </div>
+                    <div class="test-result" id="allResult">
+                        <strong>Result:</strong> <span id="allResultText">Waiting for test...</span>
+                    </div>
+                </div>
+            </div>
 
-                                        <h6>3. Available Models</h6>
-                                        <ul>
-                                            <li><strong>gpt-4o-mini</strong> - Fast and cost-effective (recommended)</li>
-                                            <li><strong>gpt-4</strong> - Highest quality for complex analysis</li>
-                                            <li><strong>gpt-3.5-turbo</strong> - Good balance of speed and quality</li>
-                                        </ul>
-                                    </div>
-                                </div>
+            <!-- Troubleshooting Guide -->
+            <div class="test-card">
+                <h3><i class="fas fa-wrench me-2"></i>Troubleshooting</h3>
+
+                <div class="accordion" id="troubleshootingAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cloudIssues">
+                                <i class="fas fa-cloud me-2"></i>Cloud AI Issues
+                            </button>
+                        </h2>
+                        <div id="cloudIssues" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                            <div class="accordion-body">
+                                <ul>
+                                    <li>Check your OpenAI API key in appsettings.json</li>
+                                    <li>Verify your internet connection</li>
+                                    <li>Ensure you have sufficient API credits/quota</li>
+                                    <li>Check for any API endpoint changes or service outages</li>
+                                </ul>
                             </div>
+                        </div>
+                    </div>
 
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#localSetup">
-                                        <i class="fas fa-server me-2"></i>Local AI Setup (Ollama)
-                                    </button>
-                                </h2>
-                                <div id="localSetup" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
-                                    <div class="accordion-body">
-                                        <h6>1. Install Ollama</h6>
-                                        <div class="code-block">
-                                            # macOS
-                                            brew install ollama
-
-                                            # Linux
-                                            curl -fsSL https://ollama.ai/install.sh | sh
-
-                                            # Windows
-                                            # Download from https://ollama.ai/download
-                                        </div>
-
-                                        <h6>2. Start Ollama Service</h6>
-                                        <div class="code-block">
-                                            ollama serve
-                                        </div>
-
-                                        <h6>3. Download Models</h6>
-                                        <div class="code-block">
-                                            # For SQL generation (recommended)
-                                            ollama pull codellama:7b
-
-                                            # Alternative models
-                                            ollama pull codellama:13b      # Better quality, needs more RAM
-                                            ollama pull sqlcoder:7b        # Specialized for SQL
-                                            ollama pull deepseek-coder:6.7b # Another good option
-                                        </div>
-
-                                        <div class="alert alert-info mt-3">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Recommended:</strong> CodeLlama 7B provides excellent SQL generation with 8GB+ RAM
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshooting">
-                                        <i class="fas fa-tools me-2"></i>Troubleshooting Guide
-                                    </button>
-                                </h2>
-                                <div id="troubleshooting" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
-                                    <div class="accordion-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <h6>Cloud AI Issues:</h6>
-                                                <ul class="small">
-                                                    <li>Check API key validity</li>
-                                                    <li>Verify internet connection</li>
-                                                    <li>Check for rate limiting</li>
-                                                    <li>Ensure model availability</li>
-                                                    <li>Check firewall/proxy settings</li>
-                                                </ul>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h6>Local AI Issues:</h6>
-                                                <ul class="small">
-                                                    <li>Verify Ollama is running</li>
-                                                    <li>Check port 11434 availability</li>
-                                                    <li>Ensure model is downloaded</li>
-                                                    <li>Check system RAM (8GB+ needed)</li>
-                                                    <li>Restart Ollama service</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <div class="alert alert-warning mt-3">
-                                            <i class="fas fa-exclamation-triangle me-2"></i>
-                                            <strong>Fallback Behavior:</strong> The system can operate with just one AI service, but hybrid setup provides optimal results and cost efficiency.
-                                        </div>
-                                    </div>
-                                </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#localIssues">
+                                <i class="fas fa-server me-2"></i>Local AI Issues
+                            </button>
+                        </h2>
+                        <div id="localIssues" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                            <div class="accordion-body">
+                                <ul>
+                                    <li>Ensure Ollama is running locally (ollama serve)</li>
+                                    <li>Verify the correct model is installed (ollama list)</li>
+                                    <li>Check the local endpoint URL in configuration</li>
+                                    <li>Try restarting the Ollama service</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
+</div>
 
-    <!-- Floating Refresh Button -->
-    <div class="floating-refresh">
-        <button type="button" class="btn btn-floating" onclick="location.reload()"
-                data-bs-toggle="tooltip" data-bs-placement="left" title="Refresh diagnostics">
-            <i class="fas fa-sync-alt"></i>
-        </button>
-    </div>
+<script>
+    function startTest(button, spinner, result, message) {
+        button.disabled = true;
+        spinner.style.display = 'inline-block';
+        result.className = 'test-result show';
+        result.querySelector('span').textContent = message;
+    }
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        async function testCloudConnection() {
-            const btn = document.getElementById('cloudTestBtn');
-            const spinner = document.getElementById('cloudSpinner');
-            const result = document.getElementById('cloudResult');
+    function endTest(button, spinner) {
+        button.disabled = false;
+        spinner.style.display = 'none';
+    }
 
-            startTest(btn, spinner, result, 'Testing cloud AI connection...');
+    function showResult(result, success, message, data) {
+        result.className = `test-result show ${success ? 'success' : 'error'}`;
+        result.querySelector('span').textContent = message;
 
-            try {
-                const response = await fetch('/Workflow/TestCloudConnection', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-                endTest(btn, spinner);
-                showResult(result, data.isConnected, data.message, data);
-
-            } catch (error) {
-                endTest(btn, spinner);
-                showResult(result, false, `Connection error: ${error.message}`, null);
-            }
+        if (data && data.details) {
+            result.querySelector('span').textContent += '\nDetails: ' + data.details;
         }
+    }
 
-        async function testLocalConnection() {
-            const btn = document.getElementById('localTestBtn');
-            const spinner = document.getElementById('localSpinner');
-            const result = document.getElementById('localResult');
+    async function testCloudConnection() {
+        const btn = document.getElementById('cloudTestBtn');
+        const spinner = document.getElementById('cloudSpinner');
+        const result = document.getElementById('cloudResult');
 
-            startTest(btn, spinner, result, 'Testing local AI connection...');
+        startTest(btn, spinner, result, 'Testing cloud AI connection...');
 
-            try {
-                const response = await fetch('/Workflow/TestLocalConnection', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-                endTest(btn, spinner);
-                showResult(result, data.isConnected, data.message, data);
-
-            } catch (error) {
-                endTest(btn, spinner);
-                showResult(result, false, `Connection error: ${error.message}`, null);
-            }
-        }
-
-        async function testAllConnections() {
-            const btn = document.getElementById('allTestBtn');
-            const spinner = document.getElementById('allSpinner');
-            const result = document.getElementById('allResult');
-
-            startTest(btn, spinner, result, 'Testing all AI services...');
-
-            try {
-                const response = await fetch('/Workflow/TestAllConnections', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-                endTest(btn, spinner);
-
-                let message = `System Health: ${data.isHealthy ? 'Good' : 'Issues Found'}\n`;
-                message += `Cloud: ${data.cloudService.isConnected ? 'OK' : 'Failed'} (${data.cloudService.responseTimeMs}ms)\n`;
-                message += `Local: ${data.localService.isConnected ? 'OK' : 'Failed'} (${data.localService.responseTimeMs}ms)`;
-
-                if (data.warnings && data.warnings.length > 0) {
-                    message += `\n\nWarnings:\n${data.warnings.join('\n')}`;
-                }
-
-                if (data.recommendations && data.recommendations.length > 0) {
-                    message += `\n\nRecommendations:\n${data.recommendations.join('\n')}`;
-                }
-
-                showResult(result, data.isHealthy, message, data);
-
-            } catch (error) {
-                endTest(btn, spinner);
-                showResult(result, false, `System test error: ${error.message}`, null);
-            }
-        }
-
-        function startTest(btn, spinner, result, message) {
-            btn.disabled = true;
-            spinner.style.display = 'inline-block';
-            result.style.display = 'block';
-            result.className = 'result-section testing';
-            result.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    <span>${message}</span>
-                </div>
-            `;
-        }
-
-        function endTest(btn, spinner) {
-            btn.disabled = false;
-            spinner.style.display = 'none';
-        }
-
-        function showResult(result, success, message, data) {
-            result.style.display = 'block';
-            result.className = `result-section ${success ? 'success' : 'error'}`;
-
-            let html = `
-                <div class="d-flex align-items-start">
-                    <i class="fas fa-${success ? 'check-circle' : 'times-circle'} me-2 mt-1"></i>
-                    <div class="flex-grow-1">
-                        <strong>${success ? 'Connection Successful!' : 'Connection Failed'}</strong>
-                        <div class="mt-1">${message.replace(/\n/g, '<br>')}</div>
-            `;
-
-            if (data && data.responseTimeMs) {
-                html += `<div class="small text-muted mt-2">Response time: ${data.responseTimeMs}ms</div>`;
-            }
-
-            if (data && data.details) {
-                html += '<div class="small text-muted mt-2">';
-                for (const [key, value] of Object.entries(data.details)) {
-                    html += `<div><strong>${key}:</strong> ${value}</div>`;
-                }
-                html += '</div>';
-            }
-
-            html += '</div></div>';
-            result.innerHTML = html;
-        }
-
-        // Auto-refresh indicators every 30 seconds
-        setInterval(async function() {
-            try {
-                const response = await fetch('/Workflow/SystemDiagnostics');
-                const diagnostics = await response.json();
-
-                // Update status indicators if available
-                console.log('System diagnostics updated', diagnostics);
-            } catch (error) {
-                console.log('Auto-refresh failed', error);
-            }
-        }, 30000);
-
-        // Initialize tooltips
-        document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+        try {
+            const response = await fetch('/Workflow/TestCloudConnection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             });
-        });
-    </script>
-</body>
-</html>
+
+            const data = await response.json();
+            endTest(btn, spinner);
+            showResult(result, data.isConnected, data.message, data);
+
+        } catch (error) {
+            endTest(btn, spinner);
+            showResult(result, false, `Connection error: ${error.message}`, null);
+        }
+    }
+
+    async function testLocalConnection() {
+        const btn = document.getElementById('localTestBtn');
+        const spinner = document.getElementById('localSpinner');
+        const result = document.getElementById('localResult');
+
+        startTest(btn, spinner, result, 'Testing local AI connection...');
+
+        try {
+            const response = await fetch('/Workflow/TestLocalConnection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            endTest(btn, spinner);
+            showResult(result, data.isConnected, data.message, data);
+
+        } catch (error) {
+            endTest(btn, spinner);
+            showResult(result, false, `Connection error: ${error.message}`, null);
+        }
+    }
+
+    async function testAllConnections() {
+        const btn = document.getElementById('allTestBtn');
+        const spinner = document.getElementById('allSpinner');
+        const result = document.getElementById('allResult');
+
+        startTest(btn, spinner, result, 'Testing all AI services...');
+
+        try {
+            const response = await fetch('/Workflow/TestAllConnections', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            endTest(btn, spinner);
+
+            let message = `System Health: ${data.isHealthy ? 'Good' : 'Issues Found'}\n`;
+            message += `Cloud: ${data.cloudService.isConnected ? 'OK' : 'Failed'} (${data.cloudService.responseTimeMs}ms)\n`;
+            message += `Local: ${data.localService.isConnected ? 'OK' : 'Failed'} (${data.localService.responseTimeMs}ms)`;
+
+            showResult(result, data.isHealthy, message, data);
+
+        } catch (error) {
+            endTest(btn, spinner);
+            showResult(result, false, `System test error: ${error.message}`, null);
+        }
+    }
+
+    // Auto-test on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Run a quick system health check on page load
+        setTimeout(() => {
+            testAllConnections();
+        }, 1000);
+    });
+</script>
