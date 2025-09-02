@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using System.Threading;
 using WorkflowCreator.Services;
 using WorkflowCreator.Services.Interfaces;
 
@@ -20,10 +19,9 @@ builder.Services.ConfigureHttpClientDefaults(builder =>
     {
         client.Timeout = TimeSpan.FromMinutes(15);
     });
-}); 
+});
 
 builder.Services.AddHttpClient();
-
 builder.Services.AddMemoryCache();
 
 // Add health checks for monitoring
@@ -42,7 +40,7 @@ if (builder.Environment.IsDevelopment())
 }
 
 // ================================================================
-// SEMANTIC KERNEL CONFIGURATION
+// SEMANTIC KERNEL CONFIGURATION (CLOUD AI ONLY)
 // ================================================================
 
 // ANALYSIS KERNEL (Cloud AI for Natural Language Understanding)
@@ -72,16 +70,14 @@ builder.Services.AddKeyedSingleton<Kernel>("analysis", (serviceProvider, key) =>
                 break;
 
             default:
-                // Fallback to local Ollama for analysis if no cloud provider configured
-                logger.LogWarning("No cloud AI provider configured, falling back to local Ollama for analysis");
-                ConfigureOllamaAnalysis(kernelBuilder, config, logger);
-                break;
+                logger.LogError("No valid cloud AI provider configured. Please set AI:Cloud:Provider to 'OpenAI', 'Azure', or 'Anthropic'");
+                throw new InvalidOperationException("Cloud AI provider is required for workflow analysis");
         }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Failed to configure Analysis Kernel, falling back to Ollama");
-        ConfigureOllamaAnalysis(kernelBuilder, config, logger);
+        logger.LogError(ex, "Failed to configure Analysis Kernel");
+        throw; // Analysis kernel is critical, don't continue without it
     }
 
     // Add common services
@@ -93,78 +89,14 @@ builder.Services.AddKeyedSingleton<Kernel>("analysis", (serviceProvider, key) =>
     return kernel;
 });
 
-// SQL GENERATION KERNEL (Local AI for Code Generation)
-builder.Services.AddKeyedSingleton<Kernel>("sql", (serviceProvider, key) =>
-{
-    var kernelBuilder = Kernel.CreateBuilder();
-    var config = serviceProvider.GetRequiredService<IConfiguration>();
-    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-
-    logger.LogInformation("Configuring SQL Generation Kernel with Ollama");
-
-    try
-    {
-        ConfigureOllamaSQL(kernelBuilder, config, logger);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to configure SQL Generation Kernel");
-        throw; // SQL kernel is critical, don't continue without it
-    }
-    
-    kernelBuilder.Services.AddLogging();
-
-    var kernel = kernelBuilder.Build();
-    logger.LogInformation("SQL Generation Kernel configured successfully");
-
-    return kernel;
-});
-
-// ADVANCED KERNEL (Function Calling and Complex Operations)
-builder.Services.AddKeyedSingleton<Kernel>("advanced", (serviceProvider, key) =>
-{
-    var kernelBuilder = Kernel.CreateBuilder();
-    var config = serviceProvider.GetRequiredService<IConfiguration>();
-    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-
-    var provider = config["AI:Cloud:Provider"]?.ToLower();
-    logger.LogInformation("Configuring Advanced Kernel with provider: {provider}", provider ?? "local");
-
-    try
-    {
-        if (provider == "openai")
-        {
-            // Use OpenAI for function calling capabilities
-            ConfigureOpenAIAdvanced(kernelBuilder, config, logger);
-        }
-        else
-        {
-            // Fallback to local model with function calling support
-            ConfigureOllamaAdvanced(kernelBuilder, config, logger);
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to configure Advanced Kernel, falling back to basic Ollama");
-        ConfigureOllamaAdvanced(kernelBuilder, config, logger);
-    }
-
-    kernelBuilder.Services.AddLogging();
-
-    var kernel = kernelBuilder.Build();
-    logger.LogInformation("Advanced Kernel configured successfully");
-
-    return kernel;
-});
-
 // ================================================================
 // APPLICATION SERVICES REGISTRATION
 // ================================================================
 
 // Core workflow services
 builder.Services.AddScoped<IWorkflowAnalysisService, SemanticKernelWorkflowService>();
-builder.Services.AddScoped<ISqlGenerationService, SemanticKernelSqlService>();
-builder.Services.AddScoped<IConnectionTestService, SemanticKernelConnectionTestService>();
+builder.Services.AddScoped<ISqlGenerationService, ProgrammaticSqlGenerationService>(); // New programmatic service
+builder.Services.AddScoped<IConnectionTestService, SemanticKernelConnectionTestService>(); // Updated connection test service
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 
 // Health check service
@@ -266,11 +198,11 @@ app.MapGet("/api/system/status", async (IConnectionTestService connectionService
                 responseTimeMs = health.CloudService.ResponseTimeMs,
                 provider = health.CloudService.Provider
             },
-            localService = new
+            sqlGeneration = new
             {
-                isConnected = health.LocalService.IsConnected,
-                responseTimeMs = health.LocalService.ResponseTimeMs,
-                provider = health.LocalService.Provider
+                isConnected = true, // Always available for programmatic generation
+                responseTimeMs = 0,
+                provider = "Programmatic"
             },
             warnings = health.Warnings,
             lastChecked = DateTime.UtcNow
@@ -285,16 +217,13 @@ app.MapGet("/api/system/status", async (IConnectionTestService connectionService
 // Configuration info endpoint
 app.MapGet("/api/system/config", (IConfiguration configuration) =>
 {
-    var isHybridSetup = !string.IsNullOrEmpty(configuration["AI:Cloud:Provider"]) &&
-                       !string.IsNullOrEmpty(configuration["AI:Local:ModelId"]);
-
     return Results.Ok(new
     {
         cloudProvider = configuration["AI:Cloud:Provider"] ?? "Not configured",
-        localProvider = configuration["AI:Local:Provider"] ?? "Ollama",
-        isHybridSetup = isHybridSetup,
+        sqlProvider = "Programmatic Generator",
+        isCloudOnlySetup = true,
         environment = app.Environment.EnvironmentName,
-        version = "2.0.0"
+        version = "2.1.0"
     });
 });
 
@@ -312,11 +241,8 @@ startupLogger.LogInformation("=== AI Workflow Creator Starting ===");
 startupLogger.LogInformation("Environment: {environment}", app.Environment.EnvironmentName);
 startupLogger.LogInformation("Cloud AI Provider: {provider}",
     config["AI:Cloud:Provider"] ?? "Not configured");
-startupLogger.LogInformation("Local AI Provider: {provider}",
-    config["AI:Local:Provider"] ?? "Ollama");
-startupLogger.LogInformation("Hybrid Setup: {isHybrid}",
-    !string.IsNullOrEmpty(config["AI:Cloud:Provider"]) &&
-    !string.IsNullOrEmpty(config["AI:Local:ModelId"]));
+startupLogger.LogInformation("SQL Generation: Programmatic (No LLM required)");
+startupLogger.LogInformation("Setup Type: Cloud AI + Programmatic SQL Generation");
 
 // Test AI services on startup (in background)
 _ = Task.Run(async () =>
@@ -332,9 +258,7 @@ _ = Task.Run(async () =>
         startupLogger.LogInformation("  Cloud AI: {status} ({time}ms)",
             health.CloudService.IsConnected ? "Connected" : "Failed",
             health.CloudService.ResponseTimeMs);
-        startupLogger.LogInformation("  Local AI: {status} ({time}ms)",
-            health.LocalService.IsConnected ? "Connected" : "Failed",
-            health.LocalService.ResponseTimeMs);
+        startupLogger.LogInformation("  SQL Generation: Always Available (Programmatic)");
 
         if (health.Warnings.Any())
         {
@@ -410,67 +334,6 @@ static void ConfigureAnthropicAnalysis(IKernelBuilder kernelBuilder, IConfigurat
 {
     // Placeholder for Anthropic configuration
     // Would need Anthropic connector package
-    logger.LogWarning("Anthropic provider not yet implemented, falling back to Ollama");
-    ConfigureOllamaAnalysis(kernelBuilder, config, logger);
-}
-
-static void ConfigureOllamaAnalysis(IKernelBuilder kernelBuilder, IConfiguration config, ILogger logger)
-{
-    var endpoint = config["AI:Local:Endpoint"] ?? "http://localhost:11434";
-    var model = config["AI:Local:AnalysisModel"] ?? "llama3:8b";
-
-    logger.LogInformation("Configuring Ollama analysis with model: {model} at {endpoint}", model, endpoint);
-
-    kernelBuilder.AddOllamaChatCompletion(
-        modelId: model,
-        endpoint: new Uri(endpoint));
-}
-
-static void ConfigureOllamaSQL(IKernelBuilder kernelBuilder, IConfiguration config, ILogger logger)
-{
-    var endpoint = config["AI:Local:Endpoint"] ?? "http://localhost:11434";
-    var model = config["AI:Local:ModelId"] ?? "codellama:7b";
-
-    logger.LogInformation("Configuring Ollama SQL generation with model: {model} at {endpoint}", model, endpoint);
-
-    var httpClient = new HttpClient
-    {
-        BaseAddress = new Uri(endpoint),
-        Timeout = TimeSpan.FromMilliseconds(config.GetValue<int>("AI:Performance:SqlGenerationTimeout", 600000))
-    }; 
-    
-    kernelBuilder.AddOllamaChatCompletion(
-        modelId: model,
-        httpClient: httpClient);
-}
-
-static void ConfigureOpenAIAdvanced(IKernelBuilder kernelBuilder, IConfiguration config, ILogger logger)
-{
-    var apiKey = config["AI:Cloud:OpenAI:ApiKey"];
-    var modelId = config["AI:Cloud:OpenAI:ModelId"] ?? "gpt-4";
-
-    logger.LogInformation("Configuring OpenAI advanced kernel with model: {model}", modelId);
-
-    var advancedConfig = new OpenAIPromptExecutionSettings
-    {
-        Temperature = 0.3,
-        MaxTokens = 1500,
-        ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
-    };
-
-    kernelBuilder.AddOpenAIChatCompletion(
-        modelId: modelId,
-        apiKey: apiKey!);
-}
-
-static void ConfigureOllamaAdvanced(IKernelBuilder kernelBuilder, IConfiguration config, ILogger logger)
-{
-    var endpoint = config["AI:Local:Endpoint"] ?? "http://localhost:11434";
-    var model = config["AI:Local:FunctionModel"] ?? "llama3:8b";
-
-    logger.LogInformation("Configuring Ollama advanced kernel with model: {model} at {endpoint}", model, endpoint);
-
-    kernelBuilder.AddOllamaChatCompletion(
-        modelId: model,
-        endpoint: new Uri(endpoint));
+    logger.LogError("Anthropic provider not yet implemented");
+    throw new NotImplementedException("Anthropic provider support is not yet implemented");
 }

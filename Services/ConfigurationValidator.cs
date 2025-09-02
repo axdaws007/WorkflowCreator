@@ -1,11 +1,12 @@
-﻿using WorkflowCreator.Models;
+﻿using Microsoft.Extensions.Configuration;
+using WorkflowCreator.Models;
 using WorkflowCreator.Services.Interfaces;
 
 namespace WorkflowCreator.Services
 {
     /// <summary>
     /// Service for validating application configuration on startup.
-    /// Provides comprehensive checking of AI service configurations, API keys, and dependencies.
+    /// Updated for cloud-only AI setup with programmatic SQL generation.
     /// </summary>
     public class ConfigurationValidator : IConfigurationValidator
     {
@@ -22,7 +23,7 @@ namespace WorkflowCreator.Services
         {
             var result = new ValidationResult();
 
-            _logger.LogInformation("Starting comprehensive configuration validation");
+            _logger.LogInformation("Starting cloud-only configuration validation");
 
             // Validate AI configuration
             var aiValidation = ValidateAIConfiguration();
@@ -47,11 +48,15 @@ namespace WorkflowCreator.Services
         {
             var result = new ValidationResult();
 
-            _logger.LogDebug("Validating AI service configuration");
+            _logger.LogDebug("Validating cloud AI configuration");
 
-            // Validate cloud AI configuration
+            // Validate cloud AI configuration - now required
             var cloudProvider = _configuration["AI:Cloud:Provider"];
-            if (!string.IsNullOrEmpty(cloudProvider))
+            if (string.IsNullOrEmpty(cloudProvider))
+            {
+                result.AddError("Cloud AI provider is required for this setup - please configure AI:Cloud:Provider");
+            }
+            else
             {
                 switch (cloudProvider.ToLower())
                 {
@@ -65,29 +70,13 @@ namespace WorkflowCreator.Services
                         ValidateAnthropicConfig(result);
                         break;
                     default:
-                        result.AddWarning($"Unknown cloud provider: {cloudProvider}");
+                        result.AddError($"Unknown cloud provider: {cloudProvider}");
                         break;
                 }
             }
-            else
-            {
-                result.AddWarning("No cloud AI provider configured - application will use local AI only");
-            }
 
-            // Validate local AI configuration
-            ValidateLocalAIConfig(result);
-
-            // Validate hybrid configuration
-            ValidateHybridConfiguration(result);
-
-            // Check for at least one working AI provider
-            var hasCloudAI = !string.IsNullOrEmpty(_configuration["AI:Cloud:Provider"]);
-            var hasLocalAI = !string.IsNullOrEmpty(_configuration["AI:Local:ModelId"]);
-
-            if (!hasCloudAI && !hasLocalAI)
-            {
-                result.AddError("No AI providers configured - application cannot function");
-            }
+            // Validate SQL generation configuration (programmatic)
+            ValidateProgrammaticSqlConfig(result);
 
             return result;
         }
@@ -146,37 +135,29 @@ namespace WorkflowCreator.Services
             var recommendations = new List<string>();
 
             var cloudProvider = _configuration["AI:Cloud:Provider"];
-            var localModel = _configuration["AI:Local:ModelId"];
-            var isHybridSetup = !string.IsNullOrEmpty(cloudProvider) && !string.IsNullOrEmpty(localModel);
 
-            // Hybrid setup recommendations
-            if (!isHybridSetup)
+            // Cloud provider recommendations
+            if (string.IsNullOrEmpty(cloudProvider))
             {
-                if (string.IsNullOrEmpty(cloudProvider))
+                recommendations.Add("Configure a cloud AI provider (OpenAI recommended for best results)");
+            }
+            else
+            {
+                // Model recommendations
+                var openAiModel = _configuration["AI:Cloud:OpenAI:ModelId"];
+                if (openAiModel == "gpt-3.5-turbo")
                 {
-                    recommendations.Add("Consider adding cloud AI provider for better natural language analysis");
+                    recommendations.Add("Consider upgrading to gpt-4o-mini for better workflow analysis quality");
                 }
 
-                if (string.IsNullOrEmpty(localModel))
+                if (cloudProvider.ToLower() == "openai" && openAiModel == "gpt-4")
                 {
-                    recommendations.Add("Consider adding local AI model for cost-effective SQL generation");
+                    recommendations.Add("Consider using gpt-4o-mini for better cost-effectiveness");
                 }
-            }
-
-            // Model recommendations
-            var openAiModel = _configuration["AI:Cloud:OpenAI:ModelId"];
-            if (openAiModel == "gpt-3.5-turbo")
-            {
-                recommendations.Add("Consider upgrading to gpt-4o-mini for better workflow analysis quality");
-            }
-
-            if (localModel == "codellama:7b")
-            {
-                recommendations.Add("For better SQL quality, consider upgrading to codellama:13b if you have sufficient RAM");
             }
 
             // Performance recommendations
-            var cacheEnabled = _configuration.GetValue<bool>("AI:Hybrid:EnableResultCaching", true);
+            var cacheEnabled = _configuration.GetValue<int>("Caching:Workflow:AnalysisCache:DefaultExpiration", 3600) > 0;
             if (!cacheEnabled)
             {
                 recommendations.Add("Enable result caching to reduce AI API costs and improve response times");
@@ -184,7 +165,11 @@ namespace WorkflowCreator.Services
 
             // Security recommendations
             var apiKey = _configuration["AI:Cloud:OpenAI:ApiKey"];
-            if (apiKey == "sk-your-openai-api-key-here")
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                recommendations.Add("Configure your OpenAI API key to enable workflow analysis");
+            }
+            else if (apiKey == "sk-your-openai-api-key-here")
             {
                 recommendations.Add("Replace the placeholder OpenAI API key with your actual key");
             }
@@ -194,6 +179,10 @@ namespace WorkflowCreator.Services
             {
                 recommendations.Add("Enable API key masking in logs for better security");
             }
+
+            // Cloud-only setup benefits
+            recommendations.Add("Cloud-only setup provides faster, more consistent results with easier deployment");
+            recommendations.Add("Programmatic SQL generation eliminates local AI infrastructure requirements");
 
             return recommendations;
         }
@@ -205,7 +194,7 @@ namespace WorkflowCreator.Services
             var apiKey = _configuration["AI:Cloud:OpenAI:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))
             {
-                result.AddError("OpenAI API key not configured");
+                result.AddError("OpenAI API key not configured - this is required for cloud-only setup");
             }
             else if (apiKey == "sk-your-openai-api-key-here")
             {
@@ -266,50 +255,23 @@ namespace WorkflowCreator.Services
             result.AddWarning("Anthropic provider is not yet fully implemented");
         }
 
-        private void ValidateLocalAIConfig(ValidationResult result)
+        private void ValidateProgrammaticSqlConfig(ValidationResult result)
         {
-            var endpoint = _configuration["AI:Local:Endpoint"] ?? "http://localhost:11434";
-            var modelId = _configuration["AI:Local:ModelId"];
+            // Programmatic SQL generation is always available
+            // Just validate that schema file is accessible for generation
+            var schemaFile = _configuration["WorkflowSchema:SchemaFile"] ?? "workflow-schema.sql";
+            var schemaPath = Path.Combine(Directory.GetCurrentDirectory(), schemaFile);
 
-            if (string.IsNullOrEmpty(modelId))
+            if (!File.Exists(schemaPath))
             {
-                result.AddWarning("Local AI model not specified, using default");
+                result.AddWarning($"Schema file not found - may affect SQL generation quality: {schemaPath}");
             }
 
-            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+            // Check programmatic generation settings
+            var includeComments = _configuration.GetValue<bool>("WorkflowSchema:IncludeComments", true);
+            if (!includeComments)
             {
-                result.AddWarning("Local AI endpoint is not a valid URL");
-            }
-
-            // Check for common Ollama models
-            var recommendedModels = new[] { "codellama:7b", "codellama:13b", "deepseek-coder:6.7b" };
-            if (!string.IsNullOrEmpty(modelId) && !recommendedModels.Contains(modelId))
-            {
-                result.AddWarning($"Model '{modelId}' is not in the recommended list for SQL generation");
-            }
-        }
-
-        private void ValidateHybridConfiguration(ValidationResult result)
-        {
-            var preferCloud = _configuration.GetValue<bool>("AI:Hybrid:PreferCloudForAnalysis", true);
-            var enableFallback = _configuration.GetValue<bool>("AI:Hybrid:EnableCloudFallback", true);
-
-            var hasCloudProvider = !string.IsNullOrEmpty(_configuration["AI:Cloud:Provider"]);
-            var hasLocalProvider = !string.IsNullOrEmpty(_configuration["AI:Local:ModelId"]);
-
-            if (preferCloud && !hasCloudProvider)
-            {
-                result.AddWarning("Configured to prefer cloud AI but no cloud provider is set up");
-            }
-
-            if (enableFallback && !hasLocalProvider)
-            {
-                result.AddWarning("Cloud fallback enabled but no local AI provider configured");
-            }
-
-            if (hasCloudProvider && hasLocalProvider)
-            {
-                result.AddWarning("Hybrid setup detected - excellent configuration for optimal cost and performance");
+                result.AddWarning("SQL comments are disabled - consider enabling for better readability");
             }
         }
 
@@ -334,6 +296,13 @@ namespace WorkflowCreator.Services
             if (!featuresSection.Exists())
             {
                 result.AddWarning("No feature flags configured - using defaults");
+            }
+
+            // Check cloud-only specific settings
+            var enableCloudAI = _configuration.GetValue<bool>("Features:EnableCloudAI", true);
+            if (!enableCloudAI)
+            {
+                result.AddError("Cloud AI is disabled but required for this setup");
             }
         }
 

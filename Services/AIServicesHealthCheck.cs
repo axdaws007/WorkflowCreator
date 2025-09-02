@@ -3,8 +3,8 @@
 namespace WorkflowCreator.Services
 {
     /// <summary>
-    /// Health check implementation for monitoring AI services.
-    /// Integrates with ASP.NET Core health check system to provide real-time status monitoring.
+    /// Health check implementation for monitoring cloud AI services.
+    /// Updated for cloud-only setup with programmatic SQL generation.
     /// </summary>
     public class AIServicesHealthCheck : IHealthCheck
     {
@@ -30,7 +30,7 @@ namespace WorkflowCreator.Services
 
             try
             {
-                _logger.LogDebug("Starting AI services health check");
+                _logger.LogDebug("Starting cloud AI services health check");
 
                 // Get timeout from configuration
                 var timeoutMs = _configuration.GetValue<int>("HealthChecks:TimeoutSeconds", 10) * 1000;
@@ -44,82 +44,69 @@ namespace WorkflowCreator.Services
                 var healthData = new Dictionary<string, object>
                 {
                     ["CloudServiceConnected"] = health.CloudService.IsConnected,
-                    ["LocalServiceConnected"] = health.LocalService.IsConnected,
+                    ["SqlGenerationAvailable"] = true, // Always true for programmatic generation
                     ["CloudResponseTimeMs"] = health.CloudService.ResponseTimeMs,
-                    ["LocalResponseTimeMs"] = health.LocalService.ResponseTimeMs,
+                    ["SqlGenerationTimeMs"] = 0, // Instant for programmatic
                     ["CloudProvider"] = health.CloudService.Provider,
-                    ["LocalProvider"] = health.LocalService.Provider,
+                    ["SqlProvider"] = "Programmatic Generator",
                     ["WarningCount"] = health.Warnings.Count,
                     ["CheckDurationMs"] = checkDuration.TotalMilliseconds,
-                    ["LastChecked"] = checkStartTime
+                    ["LastChecked"] = checkStartTime,
+                    ["SetupType"] = "Cloud-Only"
                 };
 
                 if (health.IsHealthy)
                 {
-                    var message = $"All AI services operational (Cloud: {health.CloudService.ResponseTimeMs}ms, Local: {health.LocalService.ResponseTimeMs}ms)";
+                    var message = $"Cloud AI operational ({health.CloudService.ResponseTimeMs}ms), SQL generation ready (0ms)";
                     _logger.LogDebug("Health check passed: {message}", message);
                     return HealthCheckResult.Healthy(message, healthData);
                 }
-                else if (health.CloudService.IsConnected || health.LocalService.IsConnected)
+                else
                 {
-                    var workingServices = new List<string>();
-                    var failedServices = new List<string>();
-
-                    if (health.CloudService.IsConnected)
-                        workingServices.Add($"Cloud ({health.CloudService.Provider})");
-                    else
-                        failedServices.Add($"Cloud ({health.CloudService.Provider})");
-
-                    if (health.LocalService.IsConnected)
-                        workingServices.Add($"Local ({health.LocalService.Provider})");
-                    else
-                        failedServices.Add($"Local ({health.LocalService.Provider})");
-
-                    var message = $"Partial AI services available. Working: {string.Join(", ", workingServices)}. Failed: {string.Join(", ", failedServices)}";
+                    // In cloud-only setup, we only depend on cloud AI
+                    var message = $"Cloud AI service issues detected: {health.CloudService.Message}";
 
                     if (health.Warnings.Any())
                     {
                         message += $". Warnings: {string.Join("; ", health.Warnings)}";
                     }
 
-                    _logger.LogWarning("Health check degraded: {message}", message);
-                    return HealthCheckResult.Degraded(message, null, healthData);
-                }
-                else
-                {
-                    var message = $"No AI services operational. Cloud: {health.CloudService.Message}. Local: {health.LocalService.Message}";
-
-                    if (health.Warnings.Any())
+                    if (!health.CloudService.IsConnected)
                     {
-                        message += $". Additional issues: {string.Join("; ", health.Warnings)}";
+                        _logger.LogError("Health check failed: {message}", message);
+                        return HealthCheckResult.Unhealthy(message, null, healthData);
                     }
-
-                    _logger.LogError("Health check failed: {message}", message);
-                    return HealthCheckResult.Unhealthy(message, null, healthData);
+                    else
+                    {
+                        _logger.LogWarning("Health check degraded: {message}", message);
+                        return HealthCheckResult.Degraded(message, null, healthData);
+                    }
                 }
             }
             catch (OperationCanceledException ex)
             {
-                var message = "AI services health check timed out";
+                var message = "Cloud AI services health check timed out";
                 _logger.LogWarning("Health check timed out after {duration}ms",
                     (DateTime.UtcNow - checkStartTime).TotalMilliseconds);
 
                 return HealthCheckResult.Unhealthy(message, ex, new Dictionary<string, object>
                 {
                     ["TimeoutMs"] = (DateTime.UtcNow - checkStartTime).TotalMilliseconds,
-                    ["CheckStartTime"] = checkStartTime
+                    ["CheckStartTime"] = checkStartTime,
+                    ["SetupType"] = "Cloud-Only"
                 });
             }
             catch (Exception ex)
             {
-                var message = $"AI services health check failed: {ex.Message}";
+                var message = $"Cloud AI services health check failed: {ex.Message}";
                 _logger.LogError(ex, "Health check failed");
 
                 return HealthCheckResult.Unhealthy(message, ex, new Dictionary<string, object>
                 {
                     ["ErrorType"] = ex.GetType().Name,
                     ["ErrorMessage"] = ex.Message,
-                    ["CheckDurationMs"] = (DateTime.UtcNow - checkStartTime).TotalMilliseconds
+                    ["CheckDurationMs"] = (DateTime.UtcNow - checkStartTime).TotalMilliseconds,
+                    ["SetupType"] = "Cloud-Only"
                 });
             }
         }

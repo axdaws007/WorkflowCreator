@@ -2,8 +2,8 @@
 @{
     ViewData["Title"] = "Create AI-Powered Workflow";
     var cloudProvider = ViewBag.CloudProvider as string ?? "Not configured";
-    var localProvider = ViewBag.LocalProvider as string ?? "Ollama";
-    var isHybridSetup = ViewBag.IsHybridSetup as bool? ?? false;
+    var sqlProvider = "Programmatic Generator";
+    var isCloudOnlySetup = true;
     var systemHealth = ViewBag.SystemHealth as bool? ?? false;
     var healthWarnings = ViewBag.HealthWarnings as List<string> ?? new List<string>();
 }
@@ -239,6 +239,26 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
 
+    .cloud-only-badge {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .performance-highlight {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+        border-left: 4px solid #2196f3;
+    }
+
     .example-section {
         background: white;
         border-radius: 15px;
@@ -316,15 +336,15 @@
                         <strong>AI System Status:</strong>
                         @if (systemHealth)
                         {
-                            <span class="text-success">All systems operational</span>
+                            <span class="text-success">Cloud AI operational</span>
                         }
                         else if (healthWarnings.Any())
                         {
-                            <span class="text-warning">@healthWarnings.Count warning(s) detected</span>
+                            <span class="text-warning">@healthWarnings.Count issue(s) detected</span>
                         }
                         else
                         {
-                            <span class="text-danger">System issues detected</span>
+                            <span class="text-danger">Cloud AI connection issues</span>
                         }
                         <a href="/Workflow/TestConnection" class="ms-2 text-decoration-none">
                             <small><i class="fas fa-external-link-alt"></i> View Details</small>
@@ -341,13 +361,14 @@
 
                 <!-- AI Configuration Display -->
                 <div class="ai-config">
-                    <h6 class="fw-bold mb-3">
-                        <i class="fas fa-cogs me-2"></i>AI Configuration
-                        @if (isHybridSetup)
-                        {
-                            <span class="badge bg-success ms-2">Hybrid Setup</span>
-                        }
-                    </h6>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-cogs me-2"></i>AI Configuration
+                        </h6>
+                        <span class="cloud-only-badge">
+                            <i class="fas fa-rocket"></i> Cloud-Optimized
+                        </span>
+                    </div>
 
                     <div class="row">
                         <div class="col-md-6">
@@ -364,11 +385,11 @@
                         <div class="col-md-6">
                             <div class="config-item">
                                 <div class="config-icon">
-                                    <i class="fas fa-server text-warning"></i>
+                                    <i class="fas fa-code text-success"></i>
                                 </div>
                                 <div>
-                                    <strong>SQL Generation:</strong> @localProvider
-                                    <br><small class="text-muted">Code generation</small>
+                                    <strong>SQL Generation:</strong> @sqlProvider
+                                    <br><small class="text-muted">Instant, consistent code generation</small>
                                 </div>
                             </div>
                         </div>
@@ -416,34 +437,6 @@
                 </form>
             </div>
 
-            <!-- Examples Section -->
-            <div class="example-section">
-                <h5 class="fw-bold mb-3">
-                    <i class="fas fa-lightbulb me-2"></i>Example Workflows
-                </h5>
-                <p class="text-muted mb-4">Click any example to populate the form with a sample workflow description:</p>
-
-                <div class="example-item" onclick="setExample(this)">
-                    <strong>Employee Onboarding Process</strong>
-                    <p class="mb-0 mt-2">New employee submits initial paperwork, HR reviews documents and creates accounts, direct manager conducts orientation and assigns workspace, and IT provisions equipment and system access.</p>
-                </div>
-
-                <div class="example-item" onclick="setExample(this)">
-                    <strong>Purchase Order Approval</strong>
-                    <p class="mb-0 mt-2">Requestor submits purchase request with justification, department manager reviews and approves or rejects, finance department validates budget and processes approved orders.</p>
-                </div>
-
-                <div class="example-item" onclick="setExample(this)">
-                    <strong>Customer Support Ticket</strong>
-                    <p class="mb-0 mt-2">Customer submits support request, agent triages and categorizes issue, technical team investigates and provides solution, customer confirms resolution or requests escalation.</p>
-                </div>
-
-                <div class="example-item" onclick="setExample(this)">
-                    <strong>Document Review Process</strong>
-                    <p class="mb-0 mt-2">Author submits document for review, peer reviewers provide feedback and recommendations, editor incorporates changes and finalizes document, stakeholders approve final version for publication.</p>
-                </div>
-            </div>
-
         </div>
     </div>
 </div>
@@ -473,8 +466,16 @@
                     <li>Include termination conditions (completed, cancelled, etc.)</li>
                 </ul>
 
-                <h6 class="mt-4"><i class="fas fa-lightbulb me-2"></i>AI Processing</h6>
-                <p>Our hybrid AI system uses cloud-based analysis for natural language understanding and local AI for secure SQL generation, ensuring both intelligence and data privacy.</p>
+                <h6 class="mt-4"><i class="fas fa-rocket me-2"></i>Cloud-Optimized AI Processing</h6>
+                <p>This system uses cloud AI for intelligent natural language analysis combined with programmatic SQL generation for instant, consistent results. No local AI infrastructure required!</p>
+
+                <h6 class="mt-4"><i class="fas fa-bolt me-2"></i>Performance Benefits</h6>
+                <ul>
+                    <li>Faster processing with instant SQL generation</li>
+                    <li>100% consistent SQL output</li>
+                    <li>No local model downloads or GPU requirements</li>
+                    <li>Simplified deployment and maintenance</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -528,14 +529,14 @@
         btn.disabled = true;
         wrapper.classList.add('show');
 
-        // Simulate progress (replace with actual progress tracking if available)
+        // Updated progress messages for cloud-only setup
         let progress = 0;
         const messages = [
             'Initializing AI analysis...',
-            'Processing workflow description...',
-            'Extracting workflow steps...',
-            'Analyzing status requirements...',
-            'Generating SQL statements...',
+            'Processing workflow description with cloud AI...',
+            'Extracting workflow steps and transitions...',
+            'Mapping trigger statuses to PAWS system...',
+            'Generating SQL statements programmatically...',
             'Finalizing workflow...'
         ];
 

@@ -34,18 +34,17 @@ namespace WorkflowCreator.Controllers
 
         /// <summary>
         /// GET: /Workflow
-        /// Displays the workflow creation form
+        /// Updated for cloud-only setup with programmatic SQL
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> Index()
         {
             var viewModel = new WorkflowCreateViewModel();
 
-            // Add configuration info for the UI
+            // Updated configuration info for the UI
             ViewBag.CloudProvider = _configuration["AI:Cloud:Provider"] ?? "Not configured";
-            ViewBag.LocalProvider = _configuration["AI:Local:Provider"] ?? "Ollama";
-            ViewBag.IsHybridSetup = !string.IsNullOrEmpty(_configuration["AI:Cloud:Provider"]) &&
-                                   !string.IsNullOrEmpty(_configuration["AI:Local:ModelId"]);
+            ViewBag.SqlProvider = "Programmatic Generator"; // Changed from LocalProvider
+            ViewBag.IsCloudOnlySetup = true; // Changed from IsHybridSetup
 
             // Quick health check for status indicators
             try
@@ -58,7 +57,7 @@ namespace WorkflowCreator.Controllers
             {
                 _logger.LogWarning(ex, "Failed to perform health check on Index page");
                 ViewBag.SystemHealth = false;
-                ViewBag.HealthWarnings = new List<string> { "Unable to check AI service status" };
+                ViewBag.HealthWarnings = new List<string> { "Unable to check cloud AI service status" };
             }
 
             return View(viewModel);
@@ -66,7 +65,7 @@ namespace WorkflowCreator.Controllers
 
         /// <summary>
         /// POST: /Workflow/Create
-        /// Processes workflow description using AI services and generates SQL
+        /// Updated workflow creation with programmatic SQL generation
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -83,13 +82,10 @@ namespace WorkflowCreator.Controllers
 
             try
             {
-                _logger.LogInformation("Starting AI-powered workflow creation for description: {description}",
-                    model.WorkflowDescription.Substring(0, Math.Min(100, model.WorkflowDescription.Length)) + "...");
+                _logger.LogInformation("Starting cloud AI + programmatic SQL workflow creation");
 
-                // PHASE 1: AI-Powered Workflow Analysis (Cloud AI)
-                processingSteps.Add("Starting AI analysis of workflow description");
-                _logger.LogInformation("Phase 1: Analyzing workflow with cloud AI");
-
+                // PHASE 1: AI-Powered Workflow Analysis (Cloud AI - unchanged)
+                processingSteps.Add("Analyzing workflow with cloud AI");
                 var analysisStopwatch = Stopwatch.StartNew();
                 var analysisResult = await _analysisService.AnalyzeWorkflowAsync(model.WorkflowDescription);
                 analysisStopwatch.Stop();
@@ -97,40 +93,18 @@ namespace WorkflowCreator.Controllers
                 if (!analysisResult.Success)
                 {
                     _logger.LogError("Workflow analysis failed: {error}", analysisResult.ErrorMessage);
-
-                    var errorResult = new WorkflowResultViewModel
+                    return View("Result", new WorkflowResultViewModel
                     {
                         Success = false,
-                        Message = $"AI workflow analysis failed: {analysisResult.ErrorMessage}",
+                        Message = $"Cloud AI analysis failed: {analysisResult.ErrorMessage}",
                         ResponseTimeMs = overallStopwatch.ElapsedMilliseconds,
-                        ProcessingSteps = processingSteps,
-                        AnalysisMetadata = new Dictionary<string, object>
-                        {
-                            ["AnalysisTimeMs"] = analysisStopwatch.ElapsedMilliseconds,
-                            ["FailurePhase"] = "Analysis",
-                            ["CloudProvider"] = _configuration["AI:Cloud:Provider"] ?? "Unknown"
-                        }
-                    };
-                    return View("Result", errorResult);
+                        ProcessingSteps = processingSteps
+                    });
                 }
 
-                processingSteps.Add($"✓ Analysis completed: '{analysisResult.WorkflowName}' with {analysisResult.StepCount} steps and {analysisResult.FlowTransitions?.Count ?? 0} transitions");
+                processingSteps.Add($"✓ Analysis completed: '{analysisResult.WorkflowName}' with {analysisResult.StepCount} steps");
 
-                // Validate analysis result
-                var validationIssues = analysisResult.Validate();
-                if (validationIssues.Any())
-                {
-                    _logger.LogWarning("Analysis validation issues: {issues}", string.Join(", ", validationIssues));
-                    processingSteps.Add($"⚠ Analysis warnings: {validationIssues.Count} issues found");
-                }
-
-                _logger.LogInformation("Analysis completed: Name='{name}', Steps={stepCount}, Statuses={statusCount}, Time={timeMs}ms",
-                    analysisResult.WorkflowName,
-                    analysisResult.StepCount,
-                    analysisResult.AllStatuses.Count,
-                    analysisStopwatch.ElapsedMilliseconds);
-
-                // Create workflow model with analyzed data
+                // Create workflow model
                 var workflow = new WorkflowModel
                 {
                     Id = await GetNextWorkflowIdAsync(),
@@ -140,20 +114,17 @@ namespace WorkflowCreator.Controllers
                     Status = "Analyzed"
                 };
 
-                // PHASE 2: SQL Generation (Local AI)
-                processingSteps.Add("Generating SQL statements with specialized AI model");
-                _logger.LogInformation("Phase 2: Generating SQL with local AI");
-
+                // PHASE 2: Programmatic SQL Generation (NEW - much faster)
+                processingSteps.Add("Generating SQL with programmatic engine");
                 var sqlStopwatch = Stopwatch.StartNew();
-                //var systemPrompt = BuildEnhancedSystemPrompt();
-                //var userPrompt = BuildEnhancedUserPrompt(analysisResult);
                 var schemaContext = GetWorkflowSchema();
 
+                // Use programmatic generation instead of LLM
                 var sqlResult = await _sqlService.GenerateEnhancedSqlAsync(analysisResult, schemaContext);
                 sqlStopwatch.Stop();
 
                 processingSteps.Add(sqlResult.Success
-                    ? $"✓ SQL generated successfully ({sqlResult.TokensUsed} tokens, {sqlResult.GenerationTimeMs}ms)"
+                    ? $"✓ SQL generated instantly ({sqlResult.GenerationTimeMs}ms)" // Will be ~0ms
                     : $"✗ SQL generation failed: {sqlResult.ErrorMessage}");
 
                 // Build comprehensive result
@@ -163,33 +134,26 @@ namespace WorkflowCreator.Controllers
                     Workflow = workflow,
                     Steps = analysisResult.Steps?.Select(s => $"{s.Title}: {s.Description}").ToList(),
                     FlowTransitions = analysisResult.FlowTransitions,
-                    SystemPrompt = sqlResult.SystemPrompt,
-                    UserPrompt = sqlResult.UserPrompt,
                     ProcessingSteps = processingSteps,
                     RequiredStatuses = analysisResult.RequiredStatuses,
                     ExistingStatuses = analysisResult.ExistingStatuses,
-                    ValidationIssues = validationIssues
+                    SqlWarnings = sqlResult.Warnings
                 };
 
-                // Add detailed metadata
+                // Add updated metadata for cloud-only setup
                 result.AnalysisMetadata = new Dictionary<string, object>
                 {
                     ["TotalTimeMs"] = overallStopwatch.ElapsedMilliseconds,
                     ["AnalysisTimeMs"] = analysisStopwatch.ElapsedMilliseconds,
-                    ["SqlGenerationTimeMs"] = sqlStopwatch.ElapsedMilliseconds,
+                    ["SqlGenerationTimeMs"] = sqlStopwatch.ElapsedMilliseconds, // Will be ~0ms
                     ["CloudProvider"] = analysisResult.AIProvider,
-                    ["LocalProvider"] = _configuration["AI:Local:Provider"] ?? "Unknown",
-                    ["LocalModel"] = sqlResult.ModelUsed,
+                    ["SqlProvider"] = "Programmatic Generator", // Changed
+                    ["SqlMethod"] = "Code-based", // New
+                    ["RequiresLocalAI"] = false, // New
                     ["WorkflowName"] = analysisResult.WorkflowName ?? "",
                     ["StepCount"] = analysisResult.StepCount,
-                    ["TransitionCount"] = analysisResult.FlowTransitions?.Count ?? 0,
-                    ["RequiredStatusCount"] = analysisResult.AllStatuses.Count,
-                    ["NewStatusCount"] = analysisResult.NewStatusCount,
-                    ["ExistingStatusCount"] = analysisResult.ExistingStatusCount,
-                    ["WasCached"] = analysisResult.WasCached,
-                    ["SqlTokensUsed"] = sqlResult.TokensUsed,
-                    ["SqlWarnings"] = sqlResult.Warnings,
-                    ["ValidationIssues"] = validationIssues.Count
+                    ["StatusCount"] = analysisResult.AllStatuses.Count,
+                    ["SetupType"] = "Cloud-Only" // New
                 };
 
                 if (sqlResult.Success)
@@ -197,48 +161,36 @@ namespace WorkflowCreator.Controllers
                     result.GeneratedSql = sqlResult.GeneratedSql;
                     workflow.GeneratedSql = sqlResult.GeneratedSql;
                     workflow.Status = "Generated";
-                    result.Message = "Workflow successfully analyzed with AI and SQL generated!";
-
-                    _logger.LogInformation("SQL generation completed successfully");
+                    result.Message = "Workflow analyzed with cloud AI and SQL generated programmatically!";
                 }
                 else
                 {
-                    result.Message = $"AI analysis successful, but SQL generation failed: {sqlResult.ErrorMessage}";
+                    result.Message = $"Cloud AI analysis successful, but SQL generation failed: {sqlResult.ErrorMessage}";
                     workflow.Status = "Analysis Complete";
-                    _logger.LogWarning("SQL generation failed: {error}", sqlResult.ErrorMessage);
                 }
 
-                // Store workflow
                 await _workflowService.SaveWorkflowAsync(workflow);
 
                 overallStopwatch.Stop();
                 result.ResponseTimeMs = overallStopwatch.ElapsedMilliseconds;
 
-                _logger.LogInformation("Complete workflow processing finished in {ms}ms. Success: {success}",
-                    overallStopwatch.ElapsedMilliseconds, result.Success);
+                _logger.LogInformation("Cloud-only workflow processing completed in {ms}ms",
+                    overallStopwatch.ElapsedMilliseconds);
 
                 return View("Result", result);
             }
             catch (Exception ex)
             {
                 overallStopwatch.Stop();
-                _logger.LogError(ex, "Error in AI-powered workflow creation");
+                _logger.LogError(ex, "Error in cloud-only workflow creation");
 
-                processingSteps.Add($"✗ Unexpected error: {ex.Message}");
-
-                var errorResult = new WorkflowResultViewModel
+                return View("Result", new WorkflowResultViewModel
                 {
                     Success = false,
-                    Message = $"Unexpected error during AI processing: {ex.Message}",
+                    Message = $"Error during cloud AI processing: {ex.Message}",
                     ResponseTimeMs = overallStopwatch.ElapsedMilliseconds,
-                    ProcessingSteps = processingSteps,
-                    AnalysisMetadata = new Dictionary<string, object>
-                    {
-                        ["ErrorType"] = ex.GetType().Name,
-                        ["TotalTimeMs"] = overallStopwatch.ElapsedMilliseconds
-                    }
-                };
-                return View("Result", errorResult);
+                    ProcessingSteps = processingSteps
+                });
             }
         }
 
@@ -406,41 +358,42 @@ namespace WorkflowCreator.Controllers
             }
         }
 
-        /// <summary>
+        // <summary>
         /// POST: /Workflow/TestLocalConnection
-        /// Tests local AI service connection
+        /// Updated to test programmatic SQL generation instead of local AI
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> TestLocalConnection()
         {
             try
             {
+                // Test programmatic SQL generation instead of local AI
                 var result = await _connectionTestService.TestLocalConnectionAsync();
                 return Json(new
                 {
-                    isConnected = result.IsConnected,
-                    message = result.Message,
-                    provider = result.Provider,
-                    modelId = result.ModelId,
-                    responseTimeMs = result.ResponseTimeMs,
+                    isConnected = result.IsConnected, // Always true for programmatic
+                    message = result.Message, // "Programmatic SQL generation is always available"
+                    provider = "Programmatic Generator",
+                    modelId = "Code-based SQL Generation v1.0",
+                    responseTimeMs = result.ResponseTimeMs, // Always 0
                     details = result.Details
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error testing local connection");
+                _logger.LogError(ex, "Error testing SQL generation");
                 return Json(new
                 {
                     isConnected = false,
-                    message = $"Connection test error: {ex.Message}",
-                    provider = _configuration["AI:Local:Provider"] ?? "Unknown"
+                    message = $"SQL generation test error: {ex.Message}",
+                    provider = "Programmatic Generator"
                 });
             }
         }
 
         /// <summary>
-        /// POST: /Workflow/TestAllConnections
-        /// Tests both cloud and local AI services
+        /// POST: /Workflow/TestAllConnections  
+        /// Updated for cloud-only setup
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> TestAllConnections()
@@ -455,16 +408,19 @@ namespace WorkflowCreator.Controllers
                     {
                         isConnected = health.CloudService.IsConnected,
                         message = health.CloudService.Message,
-                        responseTimeMs = health.CloudService.ResponseTimeMs
+                        responseTimeMs = health.CloudService.ResponseTimeMs,
+                        provider = health.CloudService.Provider
                     },
-                    localService = new
+                    sqlGeneration = new // Changed from localService
                     {
-                        isConnected = health.LocalService.IsConnected,
-                        message = health.LocalService.Message,
-                        responseTimeMs = health.LocalService.ResponseTimeMs
+                        isConnected = true, // Always available
+                        message = "Programmatic SQL generation ready",
+                        responseTimeMs = 0, // Instant
+                        provider = "Programmatic Generator"
                     },
                     warnings = health.Warnings,
-                    recommendations = health.Recommendations
+                    recommendations = health.Recommendations,
+                    setupType = "Cloud-Only" // New field
                 });
             }
             catch (Exception ex)
@@ -473,7 +429,8 @@ namespace WorkflowCreator.Controllers
                 return Json(new
                 {
                     isHealthy = false,
-                    message = $"System health check failed: {ex.Message}"
+                    message = $"System health check failed: {ex.Message}",
+                    setupType = "Cloud-Only"
                 });
             }
         }
@@ -499,61 +456,10 @@ namespace WorkflowCreator.Controllers
 
         #region Helper Methods
 
-        private string BuildEnhancedUserPrompt(WorkflowAnalysisResult analysisResult)
-        {
-            var prompt = new StringBuilder();
-            prompt.AppendLine("Generate SQL INSERT statements for this workflow:");
-            prompt.AppendLine();
-            prompt.AppendLine($"WORKFLOW NAME: {analysisResult.WorkflowName}");
-            prompt.AppendLine();
 
-            if (analysisResult.Steps != null && analysisResult.Steps.Any())
-            {
-                prompt.AppendLine("WORKFLOW STEPS:");
-                foreach (var step in analysisResult.Steps.OrderBy(s => s.Order))
-                {
-                    prompt.AppendLine($"{step.Order}. {step.Title}");
-                    prompt.AppendLine($"   Description: {step.Description}");
-                    prompt.AppendLine();
-                }
-            }
-
-            if (analysisResult.AllStatuses.Any())
-            {
-                prompt.AppendLine("STATUS MAPPING:");
-                var existingStatuses = analysisResult.ExistingStatuses ?? new List<WorkflowStatus>();
-                var newStatuses = analysisResult.RequiredStatuses ?? new List<WorkflowStatus>();
-
-                if (existingStatuses.Any())
-                {
-                    prompt.AppendLine("Use these existing status IDs:");
-                    foreach (var status in existingStatuses)
-                    {
-                        prompt.AppendLine($"- {status.Name} (Use existing ID: {status.ExistingId})");
-                    }
-                }
-
-                if (newStatuses.Any())
-                {
-                    prompt.AppendLine("New statuses needed:");
-                    foreach (var status in newStatuses)
-                    {
-                        prompt.AppendLine($"- {status.Name}: {status.Description}");
-                    }
-                }
-            }
-
-            prompt.AppendLine();
-            prompt.AppendLine("Generate SQL including:");
-            prompt.AppendLine("1. INSERT for PAWSProcessTemplate using the workflow name");
-            prompt.AppendLine("2. INSERT statements for PAWSActivity based on the workflow steps");
-            prompt.AppendLine("3. INSERT statements for PAWSActivityStatus for any new workflow statuses. Include comments for any new statuses.");
-            prompt.AppendLine("4. INSERT statements for PAWSActivityTransition based on the workflow steps and their outcomes");
-            prompt.AppendLine("5. Comments explaining how AI analysis drove each SQL statement");
-
-            return prompt.ToString();
-        }
-
+        /// <summary>
+        /// Updated helper method - no longer needs to build LLM prompts
+        /// </summary>
         private string GetWorkflowSchema()
         {
             if (_configuration.GetValue<bool>("WorkflowSchema:UseSchemaFile"))

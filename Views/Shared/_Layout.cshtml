@@ -17,8 +17,8 @@
     <link rel="stylesheet" href="~/WorkflowCreator.styles.css" asp-append-version="true" />
 
     <!-- Meta Tags for SEO and Social Sharing -->
-    <meta name="description" content="AI-powered workflow creation using Semantic Kernel, OpenAI, and Ollama for intelligent business process automation">
-    <meta name="keywords" content="AI, workflow, automation, semantic kernel, openai, ollama, business process">
+    <meta name="description" content="Cloud-powered workflow creation using AI for intelligent business process automation">
+    <meta name="keywords" content="AI, workflow, automation, cloud AI, OpenAI, business process, programmatic SQL">
     <meta name="author" content="AI Workflow Creator">
 
     <style>
@@ -110,7 +110,7 @@
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
-        /* AI Status Indicator */
+        /* AI Status Indicator - Updated for Cloud-Only */
         .ai-status {
             display: flex;
             align-items: center;
@@ -119,6 +119,19 @@
             border-radius: 25px;
             margin-left: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .cloud-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: var(--success-gradient);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.6rem;
+            font-weight: bold;
         }
 
         .status-dot {
@@ -137,10 +150,20 @@
                 background: #dc3545;
             }
 
+            .status-dot.partial {
+                background: #ffc107;
+            }
+
         .ai-status-text {
             font-size: 0.85rem;
             font-weight: 500;
             color: #495057;
+        }
+
+        .ai-status-subtext {
+            font-size: 0.7rem;
+            color: #6c757d;
+            margin-left: 0.5rem;
         }
 
         @@keyframes pulse {
@@ -213,6 +236,14 @@
 
         main {
             padding-top: 1rem;
+        }
+
+        .ai-status-text {
+            font-size: 0.8rem;
+        }
+
+        .ai-status-subtext {
+            display: none;
         }
 
         }
@@ -295,10 +326,12 @@
                     </li>
                 </ul>
 
-                <!-- AI Status Indicator -->
+                <!-- AI Status Indicator - Updated for Cloud-Only -->
                 <div class="ai-status" id="aiStatus">
                     <div class="status-dot online" id="statusDot"></div>
-                    <span class="ai-status-text" id="statusText">AI Services Online</span>
+                    <span class="ai-status-text" id="statusText">Cloud AI Online</span>
+                    <span class="ai-status-subtext" id="statusSubtext">SQL: Ready</span>
+                    <div class="cloud-badge">FAST</div>
                 </div>
             </div>
         </div>
@@ -314,9 +347,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
-    <!-- AI Status Checker -->
+    <!-- AI Status Checker - Updated for Cloud-Only -->
     <script>
-        // Simple AI status checker
+        // Cloud-only AI status checker
         async function checkAIStatus() {
             try {
                 const response = await fetch('/Workflow/TestAllConnections', { method: 'POST' });
@@ -324,19 +357,29 @@
 
                 const statusDot = document.getElementById('statusDot');
                 const statusText = document.getElementById('statusText');
+                const statusSubtext = document.getElementById('statusSubtext');
 
-                if (data.isHealthy) {
+                if (data.isHealthy && data.cloudService.isConnected) {
                     statusDot.className = 'status-dot online';
-                    statusText.textContent = 'AI Services Online';
+                    statusText.textContent = 'Cloud AI Online';
+                    statusSubtext.textContent = 'SQL: Ready';
+                } else if (data.cloudService.isConnected) {
+                    statusDot.className = 'status-dot partial';
+                    statusText.textContent = 'Cloud AI Partial';
+                    statusSubtext.textContent = 'Some Issues';
                 } else {
                     statusDot.className = 'status-dot offline';
-                    statusText.textContent = 'AI Issues Detected';
+                    statusText.textContent = 'Cloud AI Offline';
+                    statusSubtext.textContent = 'Check Connection';
                 }
             } catch (error) {
                 const statusDot = document.getElementById('statusDot');
                 const statusText = document.getElementById('statusText');
+                const statusSubtext = document.getElementById('statusSubtext');
+
                 statusDot.className = 'status-dot offline';
                 statusText.textContent = 'Connection Error';
+                statusSubtext.textContent = 'Check Network';
             }
         }
 

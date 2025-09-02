@@ -324,10 +324,10 @@ namespace WorkflowCreator.Services
         Return ONLY valid JSON in this exact format:
         {
         
-                  "requiredStatuses": [
+            "requiredStatuses": [
             {
         
-                      "name": "Submit for Approval",
+              "name": "Submit for Approval",
               "description": "User action to submit the item for manager review",
               "isExisting": true,
               "existingId": 2,
@@ -335,7 +335,7 @@ namespace WorkflowCreator.Services
             },
             {
         
-                      "name": "Withdraw", 
+              "name": "Withdraw", 
               "description": "User action to withdraw and terminate the process",
               "isExisting": false,
               "existingId": null,
