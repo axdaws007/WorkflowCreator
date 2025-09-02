@@ -83,6 +83,7 @@ namespace WorkflowCreator.Services
                     Success = sqlResult.Success,
                     Workflow = workflow,
                     Steps = analysisResult.Steps?.Select(s => FormatStepForDisplay(s)).ToList(),
+                    FlowTransitions = analysisResult.FlowTransitions,
                     RequiredStatuses = analysisResult.RequiredStatuses,
                     ExistingStatuses = analysisResult.ExistingStatuses,
                     ResponseTimeMs = overallStopwatch.ElapsedMilliseconds

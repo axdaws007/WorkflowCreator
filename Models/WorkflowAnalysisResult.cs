@@ -33,7 +33,8 @@ namespace WorkflowCreator.Models
         public List<WorkflowStep>? Steps { get; set; }
 
         /// <summary>
-        /// Structured list of workflow transitions extracted and analyzed by AI.
+        /// Workflow transitions extracted by AI analysis showing flow logic.
+        /// Contains the complete flow between steps via trigger statuses.
         /// </summary>
         public List<WorkflowTransition>? FlowTransitions { get; set; }
 
@@ -159,5 +160,6 @@ namespace WorkflowCreator.Models
 
             return $"'{WorkflowName}' - {StepCount} steps, {ExistingStatusCount} existing statuses, {NewStatusCount} new statuses needed";
         }
+
     }
 }

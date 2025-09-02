@@ -114,7 +114,7 @@ namespace WorkflowCreator.Controllers
                     return View("Result", errorResult);
                 }
 
-                processingSteps.Add($"✓ Analysis completed: '{analysisResult.WorkflowName}' with {analysisResult.StepCount} steps");
+                processingSteps.Add($"✓ Analysis completed: '{analysisResult.WorkflowName}' with {analysisResult.StepCount} steps and {analysisResult.FlowTransitions?.Count ?? 0} transitions");
 
                 // Validate analysis result
                 var validationIssues = analysisResult.Validate();
@@ -162,6 +162,7 @@ namespace WorkflowCreator.Controllers
                     Success = sqlResult.Success,
                     Workflow = workflow,
                     Steps = analysisResult.Steps?.Select(s => $"{s.Title}: {s.Description}").ToList(),
+                    FlowTransitions = analysisResult.FlowTransitions,
                     SystemPrompt = sqlResult.SystemPrompt,
                     UserPrompt = sqlResult.UserPrompt,
                     ProcessingSteps = processingSteps,
@@ -181,6 +182,7 @@ namespace WorkflowCreator.Controllers
                     ["LocalModel"] = sqlResult.ModelUsed,
                     ["WorkflowName"] = analysisResult.WorkflowName ?? "",
                     ["StepCount"] = analysisResult.StepCount,
+                    ["TransitionCount"] = analysisResult.FlowTransitions?.Count ?? 0,
                     ["RequiredStatusCount"] = analysisResult.AllStatuses.Count,
                     ["NewStatusCount"] = analysisResult.NewStatusCount,
                     ["ExistingStatusCount"] = analysisResult.ExistingStatusCount,

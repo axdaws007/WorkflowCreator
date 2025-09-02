@@ -42,14 +42,11 @@
             background: white;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             border-bottom: 3px solid #667eea;
-            padding: 1rem 0;
             transition: all 0.3s ease;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
         }
-
-            .navbar-custom.scrolled {
-                padding: 0.5rem 0;
-                box-shadow: 0 2px 15px rgba(0,0,0,0.15);
-            }
 
         .navbar-brand {
             font-weight: 700;
@@ -63,37 +60,15 @@
 
             .navbar-brand:hover {
                 transform: scale(1.05);
-                -webkit-text-fill-color: transparent;
             }
-
-            .navbar-brand i {
-                background: var(--primary-gradient);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                animation: pulse-brain 2s infinite;
-            }
-
-        @@keyframes pulse-brain {
-            0%, 100%
-
-        {
-            transform: scale(1);
-        }
-
-        50% {
-            transform: scale(1.1);
-        }
-
-        }
 
         .navbar-nav .nav-link {
             font-weight: 500;
             color: #495057 !important;
-            padding: 0.75rem 1rem !important;
-            border-radius: 50px;
+            padding: 0.8rem 1.2rem !important;
+            border-radius: 25px;
+            margin: 0 0.2rem;
             transition: all 0.3s ease;
-            margin: 0 0.25rem;
             position: relative;
             overflow: hidden;
         }
@@ -110,28 +85,30 @@
                 z-index: -1;
             }
 
-            .navbar-nav .nav-link:hover {
+            .navbar-nav .nav-link:hover::before,
+            .navbar-nav .nav-link.active::before {
+                left: 0;
+            }
+
+            .navbar-nav .nav-link:hover,
+            .navbar-nav .nav-link.active {
                 color: white !important;
                 transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
             }
 
-                .navbar-nav .nav-link:hover::before {
-                    left: 0;
-                }
+        .navbar-toggler {
+            border: none;
+            padding: 0.25rem 0.5rem;
+        }
 
-            .navbar-nav .nav-link.active {
-                background: var(--primary-gradient);
-                color: white !important;
+            .navbar-toggler:focus {
+                box-shadow: none;
             }
 
-            .navbar-nav .nav-link i {
-                margin-right: 0.5rem;
-                transition: transform 0.3s ease;
-            }
-
-            .navbar-nav .nav-link:hover i {
-                transform: scale(1.2);
-            }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
 
         /* AI Status Indicator */
         .ai-status {
@@ -139,198 +116,56 @@
             align-items: center;
             background: rgba(255, 255, 255, 0.9);
             padding: 0.5rem 1rem;
-            border-radius: 50px;
+            border-radius: 25px;
+            margin-left: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
         }
 
-            .ai-status:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            }
-
         .status-dot {
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             margin-right: 0.5rem;
-            animation: pulse-dot 2s infinite;
+            animation: pulse 2s infinite;
         }
 
             .status-dot.online {
                 background: #28a745;
             }
 
-            .status-dot.degraded {
-                background: #ffc107;
-            }
-
             .status-dot.offline {
                 background: #dc3545;
             }
 
-        @@keyframes pulse-dot {
-            0%, 100%
-
-        {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.6;
-        }
-
-        }
-
         .ai-status-text {
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 500;
             color: #495057;
         }
 
-        /* Mobile Menu Toggle */
-        .navbar-toggler {
-            border: none;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.3s ease;
+        @@keyframes pulse {
+            0%
+
+        {
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
         }
 
-            .navbar-toggler:focus {
-                box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
-            }
+        70% {
+            box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+        }
 
-        .navbar-toggler-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        100% {
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+        }
+
         }
 
         /* Main Content */
         main {
-            min-height: calc(100vh - 200px);
+            min-height: calc(100vh - 120px);
             padding-top: 2rem;
+            padding-bottom: 2rem;
         }
-
-        /* Enhanced Footer */
-        .footer {
-            background: var(--dark-gradient);
-            color: white;
-            padding: 3rem 0 2rem 0;
-            margin-top: auto;
-            position: relative;
-            overflow: hidden;
-        }
-
-            .footer::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 3px;
-                background: var(--primary-gradient);
-            }
-
-        .footer-content {
-            position: relative;
-            z-index: 2;
-        }
-
-        .footer-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .footer-description {
-            color: #adb5bd;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-
-        .footer-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .footer-section h6 {
-            color: white;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-        }
-
-        .footer-section ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-            .footer-section ul li {
-                margin-bottom: 0.5rem;
-            }
-
-                .footer-section ul li a {
-                    color: #adb5bd;
-                    text-decoration: none;
-                    transition: color 0.3s ease;
-                    font-size: 0.95rem;
-                }
-
-                    .footer-section ul li a:hover {
-                        color: #667eea;
-                    }
-
-        .footer-tech-stack {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .tech-items {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        .tech-item {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-            .tech-item:hover {
-                background: var(--primary-gradient);
-                transform: translateY(-2px);
-            }
-
-        .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 2rem;
-            text-align: center;
-            color: #adb5bd;
-            font-size: 0.9rem;
-        }
-
-            .footer-bottom a {
-                color: #667eea;
-                text-decoration: none;
-            }
-
-                .footer-bottom a:hover {
-                    text-decoration: underline;
-                }
 
         /* Loading Indicator */
         .page-loading {
@@ -367,20 +202,6 @@
             justify-content: center;
         }
 
-        .footer-links {
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tech-items {
-            gap: 0.5rem;
-        }
-
-        .tech-item {
-            font-size: 0.8rem;
-            padding: 0.4rem 0.8rem;
-        }
-
         }
 
         @@media (max-width: 576px) {
@@ -390,12 +211,8 @@
             font-size: 1.25rem;
         }
 
-        .footer {
-            padding: 2rem 0 1.5rem 0;
-        }
-
-        .footer-tech-stack {
-            padding: 1rem;
+        main {
+            padding-top: 1rem;
         }
 
         }
@@ -492,192 +309,46 @@
         @RenderBody()
     </main>
 
-    <!-- Enhanced Footer -->
-    <footer class="footer">
-        <div class="container footer-content">
-            <div class="row">
-                <div class="col-lg-4 mb-4">
-                    <div class="footer-brand">
-                        <i class="fas fa-brain me-2"></i>
-                        AI Workflow Creator
-                    </div>
-                    <p class="footer-description">
-                        Intelligent workflow automation powered by advanced AI technologies.
-                        Transform your business processes with hybrid cloud and local AI models.
-                    </p>
-                </div>
-
-                <div class="col-lg-8">
-                    <div class="footer-links">
-                        <div class="footer-section">
-                            <h6><i class="fas fa-cogs me-2"></i>Features</h6>
-                            <ul>
-                                <li><a href="/Workflow">AI Workflow Analysis</a></li>
-                                <li><a href="/Workflow">SQL Code Generation</a></li>
-                                <li><a href="/Workflow/TestConnection">Hybrid AI Setup</a></li>
-                                <li><a href="/Workflow/List">Workflow Management</a></li>
-                            </ul>
-                        </div>
-
-                        <div class="footer-section">
-                            <h6><i class="fas fa-question-circle me-2"></i>Support</h6>
-                            <ul>
-                                <li><a href="/Workflow/TestConnection">AI Service Status</a></li>
-                                <li><a href="/Workflow/TestConnection">Connection Testing</a></li>
-                                <li><a href="#" onclick="showHelpModal()">Setup Guide</a></li>
-                                <li><a href="#" onclick="showAboutModal()">About This App</a></li>
-                            </ul>
-                        </div>
-
-                        <div class="footer-section">
-                            <h6><i class="fas fa-code me-2"></i>Technology</h6>
-                            <ul>
-                                <li><a href="https://learn.microsoft.com/en-us/semantic-kernel/" target="_blank">Semantic Kernel</a></li>
-                                <li><a href="https://openai.com/" target="_blank">OpenAI</a></li>
-                                <li><a href="https://ollama.ai/" target="_blank">Ollama</a></li>
-                                <li><a href="https://learn.microsoft.com/aspnet/core" target="_blank">ASP.NET Core</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Technology Stack -->
-            <div class="footer-tech-stack">
-                <h6 class="text-center mb-3">
-                    <i class="fas fa-layer-group me-2"></i>Powered By Advanced AI Technologies
-                </h6>
-                <div class="tech-items">
-                    <span class="tech-item">Microsoft Semantic Kernel</span>
-                    <span class="tech-item">OpenAI GPT-4</span>
-                    <span class="tech-item">Ollama Local AI</span>
-                    <span class="tech-item">ASP.NET Core 8</span>
-                    <span class="tech-item">SQL Server</span>
-                    <span class="tech-item">Bootstrap 5</span>
-                    <span class="tech-item">Hybrid Architecture</span>
-                </div>
-            </div>
-
-            <!-- Footer Bottom -->
-            <div class="footer-bottom">
-                <div class="row align-items-center">
-                    <div class="col-md-6 text-center text-md-start">
-                        &copy; @DateTime.Now.Year AI Workflow Creator.
-                        Built with <i class="fas fa-heart text-danger"></i> and AI.
-                    </div>
-                    <div class="col-md-6 text-center text-md-end">
-                        <a href="/Home/Privacy">Privacy Policy</a> |
-                        <a href="#" onclick="showAboutModal()">About</a> |
-                        <span class="text-muted">Version 2.0</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </footer>
-
     <!-- JavaScript Dependencies -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
-    <!-- Enhanced JavaScript -->
+    <!-- AI Status Checker -->
     <script>
-        // Page loading indicator
-        window.addEventListener('beforeunload', function() {
-            document.getElementById('pageLoading').classList.add('show');
-        });
-
-        window.addEventListener('load', function() {
-            document.getElementById('pageLoading').classList.remove('show');
-        });
-
-        // Navbar scroll effect
-        window.addEventListener('scroll', function() {
-            const navbar = document.getElementById('mainNavbar');
-            if (window.scrollY > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
-            }
-        });
-
-        // AI Status Checker
+        // Simple AI status checker
         async function checkAIStatus() {
             try {
-                const response = await fetch('/Workflow/SystemDiagnostics');
+                const response = await fetch('/Workflow/TestAllConnections', { method: 'POST' });
                 const data = await response.json();
 
                 const statusDot = document.getElementById('statusDot');
                 const statusText = document.getElementById('statusText');
 
-                if (data.health && data.health.isHealthy) {
+                if (data.isHealthy) {
                     statusDot.className = 'status-dot online';
                     statusText.textContent = 'AI Services Online';
-                } else if (data.health && data.health.warnings && data.health.warnings.length > 0) {
-                    statusDot.className = 'status-dot degraded';
-                    statusText.textContent = 'AI Services Degraded';
                 } else {
                     statusDot.className = 'status-dot offline';
-                    statusText.textContent = 'AI Services Offline';
+                    statusText.textContent = 'AI Issues Detected';
                 }
             } catch (error) {
-                console.log('AI status check failed:', error);
                 const statusDot = document.getElementById('statusDot');
                 const statusText = document.getElementById('statusText');
                 statusDot.className = 'status-dot offline';
-                statusText.textContent = 'Status Unknown';
+                statusText.textContent = 'Connection Error';
             }
         }
 
-        // Check AI status on page load and then every 30 seconds
+        // Check status on page load and every 30 seconds
         document.addEventListener('DOMContentLoaded', function() {
             checkAIStatus();
             setInterval(checkAIStatus, 30000);
-        });
 
-        // Helper functions for modals
-        function showHelpModal() {
-            alert('Setup Guide:\n\n1. Configure OpenAI API key in appsettings.json\n2. Install and start Ollama\n3. Download AI models (codellama:7b recommended)\n4. Test connections in AI Diagnostics\n5. Start creating workflows!\n\nFor detailed setup instructions, visit the AI Diagnostics page.');
-        }
-
-        function showAboutModal() {
-            alert('AI Workflow Creator v2.0\n\nA sophisticated workflow automation platform powered by:\n\n• Microsoft Semantic Kernel\n• OpenAI GPT models\n• Ollama local AI\n• Hybrid architecture\n\nThis application demonstrates advanced AI integration for business process automation, combining cloud-based natural language understanding with local code generation capabilities.');
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+N or Cmd+N for new workflow
-            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-                e.preventDefault();
-                window.location.href = '/Workflow';
-            }
-
-            // Ctrl+L or Cmd+L for workflow list
-            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
-                e.preventDefault();
-                window.location.href = '/Workflow/List';
-            }
-
-            // Ctrl+D or Cmd+D for diagnostics
-            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-                e.preventDefault();
-                window.location.href = '/Workflow/TestConnection';
-            }
-        });
-
-        // Analytics and performance monitoring (placeholder)
-        function trackPageView() {
-            // Add your analytics code here
-            console.log('Page view tracked:', window.location.pathname);
-        }
-
-        function trackUserAction(action, details) {
-            // Add your analytics code here
-            console.log('User action tracked:', action, details);
-        }
-
-        // Initialize tracking
-        document.addEventListener('DOMContentLoaded', function() {
-            trackPageView();
+            // Page loading animation
+            const pageLoading = document.getElementById('pageLoading');
+            pageLoading.classList.add('show');
+            setTimeout(() => pageLoading.classList.remove('show'), 1000);
         });
     </script>
 

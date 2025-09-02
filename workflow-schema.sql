@@ -61,39 +61,3 @@ CREATE TABLE [paws].[PAWSActivityTransition](
 	[MUTHandler] [nvarchar](255) NULL, -- Custom handler/script (default: NULL)
 	[MUTTags] [nvarchar](max) NULL -- Metadata tags (default: NULL)
 );
-
--- ================================================
--- IMPORTANT NOTES FOR INSERT GENERATION:
--- ================================================
--- 1. INSERT ORDER: PAWSProcessTemplate → PAWSActivity → PAWSActivityTransition
--- 2. For each workflow, activities typically numbered sequentially (1, 2, 3...)
--- 3. The first row for the PAWSActivityTransition table should have [SourceActivityID] = NULL and a TriggerStatusID = 1 (Pending).
--- 4. Common transition patterns:
---    - Linear: Activity 1 → 2 → 3 → End
---    - Approval: Activity → (Approved → Next) OR (Rejected → Previous/End)
---    - Parallel: Activity → Multiple simultaneous activities → Convergence
--- 5. TriggerStatusID common mappings:
---    - 1 (Approved): Move to next step
---    - 2 (Rejected): Return to previous or end
---    - 3 (Submit): Initial submission to start workflow
---    - 4 (Complete): Finish current activity
--- 6. TransitionType: 1=Forward progression, 2=Backward (for rework/rejection)
-
--- ================================================
--- EXAMPLE WORKFLOW PATTERN:
--- ================================================
--- Simple Approval Workflow:
--- 1. Submit Request (Activity 1)
---    → Submitted for Approval (Status 2) → Manager Review (Activity 2)
--- 2. Manager Review (Activity 2)
---    → Approved (Status 3) → Complete (End)
---    → Rejected (Status 7) → Submit Request (Activity 1)
-
--- Complex Approval with Multiple Levels:
--- 1. Submit → Manager Review
--- 2. Manager Review → Approved → Director Review
--- 2. Manager Review → Rejected → Submit (with comments)
--- 3. Director Review → Approved → Finance Review
--- 3. Director Review → Rejected → Manager Review
--- 4. Finance Review → Approved → Complete
--- 4. Finance Review → Rejected → Director Review

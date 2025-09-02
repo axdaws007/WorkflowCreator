@@ -51,10 +51,11 @@ namespace WorkflowCreator.Services
                 _logger.LogDebug("Phase 2: Analyzing workflow steps");
                 var workflowResponse = await AnalyzeWorkflowStepsAsync(description);
                 result.Steps = workflowResponse.Steps;
+                result.FlowTransitions = workflowResponse.Transitions;
 
                 // Step 3: Determine required statuses
                 _logger.LogDebug("Phase 3: Determining required statuses");
-                var statusAnalysis = await DetermineRequiredStatusesAsync(description, workflowResponse.Steps);
+                var statusAnalysis = await DetermineRequiredStatusesAsync(description, workflowResponse.Steps, workflowResponse.Transitions);
                 result.RequiredStatuses = statusAnalysis.RequiredStatuses;
                 result.ExistingStatuses = statusAnalysis.ExistingStatuses;
 
@@ -247,110 +248,127 @@ namespace WorkflowCreator.Services
         }
 
         private async Task<(List<WorkflowStatus>? RequiredStatuses, List<WorkflowStatus>? ExistingStatuses)>
-            DetermineRequiredStatusesAsync(string description, List<WorkflowStep>? steps)
+            DetermineRequiredStatusesAsync(string description, List<WorkflowStep>? steps, List<WorkflowTransition>? transitions)
         {
             var existingStatuses = GetExistingStatuses();
             var existingStatusText = string.Join("\n", existingStatuses.Select(s => $"- {s.Name} (ID: {s.ExistingId}) - {s.Description}"));
 
+            // Build steps context for better understanding
             var stepsText = string.Empty;
             if (steps != null && steps.Any())
             {
-                foreach (var step in steps)
-                {
-                    var stepHeading = $"Step {step.Order}. {step.Title}: {step.Description} ";
-
-                    var outcomeText = string.Empty;
-
-                    stepsText += stepHeading + outcomeText;
-                }
+                stepsText = string.Join("\n", steps.Select(s => $"Step {s.Order}. {s.Title}: {s.Description}"));
             }
             else
             {
                 stepsText = "No structured steps available";
             }
-                //var stepsText = steps != null && steps.Any()
-                //    ? string.Join(
-                //        "\n",
-                //        steps.Select(s => $"Step {s.Order}. {s.Title}: {s.Description}"))
-                //    : "No structured steps available";
+
+            // Build transitions context - this is the key information for extracting trigger statuses
+            var transitionsText = string.Empty;
+            if (transitions != null && transitions.Any())
+            {
+                transitionsText = "WORKFLOW TRANSITIONS (these contain the trigger statuses):\n";
+                foreach (var transition in transitions)
+                {
+                    var sourceDisplay = transition.SourceStep ?? "WORKFLOW START";
+                    var destDisplay = transition.DestinationStep ?? "WORKFLOW END";
+                    var progressType = transition.IsProgressive ? "Forward" : "Backward";
+
+                    transitionsText += $"- From '{sourceDisplay}' → Trigger: '{transition.TriggerStatus}' → To '{destDisplay}' ({progressType})\n";
+                }
+            }
+            else
+            {
+                transitionsText = "No transitions available";
+            }
 
             var prompt = $"""
-                You are a workflow system analyst. Analyze the workflow and determine what TRIGGER STATUSES (user action choices) are needed.
+        You are a workflow system analyst. Analyze the workflow transitions to determine what TRIGGER STATUSES (user action choices) are needed.
 
-                IMPORTANT: Trigger statuses are the ACTION CHOICES available to users at each workflow step, NOT the step names themselves.
+        IMPORTANT: Trigger statuses are the ACTION CHOICES available to users at each workflow step, NOT the step names themselves.
+        The trigger statuses are explicitly provided in the WORKFLOW TRANSITIONS below.
 
-                EXISTING TRIGGER STATUSES in the PAWS system:
-                {existingStatusText}
+        EXISTING TRIGGER STATUSES in the PAWS system:
+        {existingStatusText}
 
-                WORKFLOW DESCRIPTION: 
-                {description}
+        WORKFLOW DESCRIPTION: 
+        {description}
 
-                ANALYZED STEPS (in order and with their title and description) and their POSSIBLE OUTCOMES 
-                {stepsText}
+        WORKFLOW STEPS:
+        {stepsText}
 
+        {transitionsText}
 
-                """;
+        """;
 
             prompt += """
-                Your task:
-                1. For each workflow step, identify what ACTION CHOICES (trigger statuses) the user can select based upon the POSSIBLE OTCOMES
-                2. Map these action choices to existing trigger statuses where possible
-                3. Identify any new trigger statuses that need to be created
-                4. DO NOT include workflow step names (like "Draft", "Open", "Closed") as trigger statuses
+        Your task:
+        1. Extract ALL unique trigger statuses from the workflow transitions above
+        2. For each trigger status, map it to existing statuses where possible (exact or close semantic matches)
+        3. Identify any new trigger statuses that need to be created
+        4. DO NOT include workflow step names (like "Draft", "Open", "Closed") as trigger statuses
 
-                Guidelines:
-                - Trigger statuses are VERBS or ACTION PHRASES (e.g., "Submit for Approval", "Reject", "Approve")
-                - Step names are NOUNS or STATES (e.g., "Draft", "Open", "Closed") - DO NOT include these
-                - Focus on what the USER DOES, not where the workflow goes
-                - Use the exact trigger status names provided in the workflow description
-                - Consider approval paths, rejection paths, and termination actions
-                - Each trigger status represents a business decision or action
+        Guidelines:
+        - Trigger statuses are VERBS or ACTION PHRASES (e.g., "Submit for Approval", "Reject", "Approve")
+        - Step names are NOUNS or STATES (e.g., "Draft", "Open", "Closed") - DO NOT include these
+        - Use the EXACT trigger status names from the transitions
+        - Consider the business context for appropriate mappings
+        - Each trigger status represents a business decision or action
 
-                Example: If the description says 'From "Draft" step user could choose "Submit for Approval"', then "Submit for Approval" is a trigger status, but "Draft" is NOT.
+        For mapping existing statuses, be flexible with naming variations:
+        - "Approve" maps to existing "Approved" or "Approve"
+        - "Submit" variations can map to "Submit for Approval" or "Submitted for Approval"
+        - "Reject" maps to existing "Rejected" or "Reject"
 
-                Return ONLY valid JSON in this format:
-                {
+        Return ONLY valid JSON in this exact format:
+        {
+        
                   "requiredStatuses": [
-                    {
+            {
+        
                       "name": "Submit for Approval",
-                      "description": "User action to submit the item for manager review",
-                      "isExisting": true,
-                      "existingId": 2,
-                      "stepContext": "Available from Draft step"
-                    },
-                    {
+              "description": "User action to submit the item for manager review",
+              "isExisting": true,
+              "existingId": 2,
+              "stepContext": "Available from Draft step"
+            },
+            {
+        
                       "name": "Withdraw", 
-                      "description": "User action to withdraw and terminate the process",
-                      "isExisting": false,
-                      "existingId": null,
-                      "stepContext": "Available from Draft step"
-                    }
-                  ]
-                }
+              "description": "User action to withdraw and terminate the process",
+              "isExisting": false,
+              "existingId": null,
+              "stepContext": "Available from Draft step"
+            }
+          ]
+        }
 
-                JSON Response:
-                """;
+        JSON Response:
+        """;
 
             var function = _analysisKernel.CreateFunctionFromPrompt(
                 promptTemplate: prompt,
                 functionName: "DetermineRequiredStatuses",
-                description: "Determines required workflow statuses and maps to existing ones"
+                description: "Determines required workflow statuses from transitions and maps to existing ones"
             );
 
             var result = await _analysisKernel.InvokeAsync(function, new KernelArguments
             {
                 ["existingStatuses"] = existingStatusText,
                 ["description"] = description,
-                ["steps"] = stepsText
+                ["steps"] = stepsText,
+                ["transitions"] = transitionsText
             });
 
             var jsonResponse = result.GetValue<string>();
             var statusAnalysis = ParseStatusAnalysis(jsonResponse);
 
-            _logger.LogDebug("Determined {required} required statuses ({existing} existing, {new} new)",
+            _logger.LogDebug("Determined {required} required statuses ({existing} existing, {new} new) from {transitionCount} transitions",
                 statusAnalysis.RequiredStatuses?.Count ?? 0,
                 statusAnalysis.ExistingStatuses?.Count ?? 0,
-                statusAnalysis.RequiredStatuses?.Count(s => !s.IsExisting) ?? 0);
+                statusAnalysis.RequiredStatuses?.Count(s => !s.IsExisting) ?? 0,
+                transitions?.Count ?? 0);
 
             return statusAnalysis;
         }

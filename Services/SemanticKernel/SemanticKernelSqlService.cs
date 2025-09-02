@@ -324,6 +324,31 @@ namespace WorkflowCreator.Services
                 }
             }
 
+            if (analysisResult.FlowTransitions != null && analysisResult.FlowTransitions.Any())
+            {
+                prompt.AppendLine("WORKFLOW TRANSITIONS (Flow Logic):");
+                prompt.AppendLine("These define the exact flow between steps and must be implemented as PAWSActivityTransition records:");
+                prompt.AppendLine();
+
+                foreach (var transition in analysisResult.FlowTransitions)
+                {
+                    var sourceDisplay = transition.SourceStep ?? "WORKFLOW START";
+                    var destDisplay = transition.DestinationStep ?? "WORKFLOW END";
+                    var transitionType = transition.IsProgressive ? "Forward (1)" : "Backward (2)";
+
+                    prompt.AppendLine($"- From: '{sourceDisplay}' → Trigger Status: '{transition.TriggerStatus}' → To: '{destDisplay}' [{transitionType}]");
+                }
+                prompt.AppendLine();
+
+                prompt.AppendLine("TRANSITION IMPLEMENTATION NOTES:");
+                prompt.AppendLine("- SourceActivityID = NULL represents workflow start");
+                prompt.AppendLine("- DestinationActivityID = NULL represents workflow termination");
+                prompt.AppendLine("- Use SELECT subqueries to lookup activity IDs by step title");
+                prompt.AppendLine("- TransitionType: 1 = Forward, 2 = Backward/Rejection");
+                prompt.AppendLine("- Each transition must reference the correct TriggerStatusID");
+                prompt.AppendLine();
+            }
+
             prompt.Append("""
                 SPECIAL REQUIREMENTS:
 
@@ -356,9 +381,14 @@ namespace WorkflowCreator.Services
                 INSERT INTO PAWSActivity (activityID, title, processTemplateID, ...) VALUES 
                 (ISNULL((SELECT MAX(activityID) FROM PAWSActivity), 0) + 1, 'Open', @processId, ...);
 
+                -- Insert any new Trigger Statuses (with auto-generated IDs)
+
+                INSERT INTO PAWSActivityStatus (activityStatusID, title) VALUES 
+                (ISNULL((SELECT MAX(activityStatusID) FROM PAWSActivityStatus), 0) + 1, 'Re-Open');
+                                
                 -- Then lookup IDs in transitions using SELECT
-                INSERT INTO PAWSActivityTransition (SourceActivityID, DestinationActivityID, ...) VALUES
-                -- Start → Draft (lookup Draft's ID)
+                INSERT INTO PAWSActivityTransition (SourceActivityID, DestinationActivityID, TriggerStatusID, ...) VALUES
+                -- Workflow Start → Draft (lookup Draft's ID)
                 (NULL, 
                  (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Draft'),
                  1, ...),
@@ -366,11 +396,13 @@ namespace WorkflowCreator.Services
                 -- Draft → Open (lookup both IDs)
                 ((SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Draft'),
                  (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Open'),
+                 (SELECT activityStatusID FROM PAWSActivityStatus WHERE title = 'Submit for Approval'),
                  ...),
 
-                -- Open → End
+                -- Closed → Workflow End
                 ((SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'Open'),
                  NULL,
+                 (SELECT activityStatusID FROM PAWSActivityStatus WHERE title = 'Review and Close'),
                  ...);
 
 
@@ -387,6 +419,8 @@ namespace WorkflowCreator.Services
         private string BuildEnhancedSystemPrompt(string schemaContext)
         {
             return $@"You are a SQL code generator for the PAWS workflow management system. Your task is to generate ONLY valid SQL INSERT statements that populate the workflow tables. You must follow strict rules to maintain data integrity and foreign key constraints.
+
+You must generate the SQL INSERT statement required to populates the PAWS workflow management system tables.  
 
 CRITICAL REQUIREMENTS:
 1. Generate ONLY SQL INSERT statements - no explanations, no DDL, no other text
@@ -407,9 +441,11 @@ DATABASE SCHEMA:
 INSERTION ORDER (MANDATORY):
 1. PAWSProcessTemplate (one row per workflow)
 2. PAWSActivity (one row per step)
-3. PAWSActivityTransition (multiple rows defining the flow)
+3. PAWSActivityStatus (one row per new required trigger status, not required for existing trigger statuses)
+4. PAWSActivityTransition (multiple rows defining the flow)
 
 PAWSProcessTemplate RULES:
+- there must be one INSERT created to create the new workflow ID (processTemplateID) and assign the workflow it's name
 - processTemplateID: Always use NEWID()
 - title: Workflow name (max 100 chars)
 - IsArchived: Always 0 for new workflows
@@ -418,6 +454,7 @@ PAWSProcessTemplate RULES:
 - ReassignCapabilityID: Default NULL
 
 PAWSActivity RULES:
+- create one INSERT for each workflow step
 - activityID: Auto-generated sequential integers (use ISNULL((SELECT MAX(activityID) FROM PAWSActivity), 0) + 1)
 - title: Step name (max 100 chars)
 - description: Step description (max 500 chars)
@@ -428,7 +465,13 @@ PAWSActivity RULES:
 - ShowSignoffText: 0 unless displaying approval text
 - RequirePassword: 0 unless password required
 
+PAWSActivityStatus RULES:
+- create one INSERT for each new trigger status.  Existing trigger statuses do not need any INSERT statements.
+- activityStatusID: Auto-generated sequential integers (use ISNULL((SELECT MAX(activityStatusID) FROM PAWSActivityStatus), 0) + 1)
+- title: Step name (max 100 chars)
+
 PAWSActivityTransition RULES (CRITICAL):
+- Create an INSERT for each transition in the workflow.
 - FIRST ROW RULE: Every workflow MUST have an initial transition with:
   * SourceActivityID = NULL (workflow entry point)
   * DestinationActivityID = (SELECT activityID FROM PAWSActivity WHERE processTemplateID = @processId AND title = 'FirstStepTitle')
@@ -451,16 +494,13 @@ STANDARD STATUS IDs (PAWSActivityStatus):
 18 = Submit for Review
 19 = Review and Close
 
-WORKFLOW PATTERNS:
-- Linear: Step1 -> Step2 -> Step3 -> End
-- Approval: Step -> (Approved->Next) OR (Rejected->Previous)
-- Multi-level: Each level can approve forward or reject backward
-
 OUTPUT FORMAT:
 -- Always start with a header comment
 -- Group INSERTs by table
 -- Use consistent formatting
 -- Include inline comments for complex transitions
+
+You will be provided with the workflow steps, trigger statuses and transitions in the User Prompt.
 ";
         }
 
